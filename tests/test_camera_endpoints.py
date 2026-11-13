@@ -353,3 +353,31 @@ def test_camera_temperature_reflects_session_state():
     session.camera_state.temperature_c = None
     camera_state.ccd_temperature = 25.0
     camera_state.heatsink_temperature = 25.0
+
+
+def test_imagearray_supports_alpaca_imagebytes():
+    import struct
+
+    _connect_camera()
+    session = asyncio.run(get_session())
+    image = np.arange(12, dtype=np.uint16).reshape(3, 4)
+    session.camera_state.image = image
+    session.camera_state.capture_phase = CapturePhase.READY
+
+    resp = client.get(
+        "/api/v1/camera/0/imagearray?ClientTransactionID=5",
+        headers={"Accept": "application/imagebytes"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/imagebytes")
+    header = struct.unpack("<iiIIiiiiiii", resp.content[:44])
+    assert header[0] == 1 and header[1] == 0 and header[2] == 5
+    assert header[4] == 44 and header[5] == 2 and header[6] == 2
+    assert header[7:] == (2, 3, 4, 0)
+    data = np.frombuffer(resp.content[44:], dtype="<i4").reshape(3, 4)
+    assert np.array_equal(data, image)
+
+    json_resp = client.get("/api/v1/camera/0/imagearray")
+    assert json_resp.json()["Value"] == image.tolist()
+    session.camera_state.image = None

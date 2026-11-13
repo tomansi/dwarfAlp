@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
+import struct
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -9,6 +11,7 @@ from datetime import datetime, timezone
 import numpy as np
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from websockets.exceptions import ConnectionClosed
 
 from .. import __version__
@@ -838,34 +841,88 @@ async def get_image_bytes():
     return alpaca_response(value={"ImageBytes": encoded, **metadata})
 
 
-@router.get("/imagearray")
-async def get_image_array():
+_IMAGEBYTES_MEDIA_TYPE = "application/imagebytes"
+_IMAGEBYTES_HEADER = struct.Struct("<iiIIiiiiiii")  # 44 bytes, Alpaca metadata v1
+def _wants_imagebytes(request: Request) -> bool:
+    accept = request.headers.get("accept", "")
+    return _IMAGEBYTES_MEDIA_TYPE in accept.lower()
+
+
+def _encode_imagebytes(
+    processed_image: np.ndarray,
+    type_code: int,
+    client_transaction_id: int,
+    server_transaction_id: int,
+) -> bytes:
+    """Encode an image as an Alpaca ImageBytes payload (binary, no JSON).
+
+    The element order and dimensions match the JSON ImageArray response exactly
+    (Dim1 = first numpy axis, last axis fastest), so clients see the same image.
+    Data travels in its declared element type: NINA has had trouble when the
+    transmission type differs from the image element type.
+    """
+
+    data = np.ascontiguousarray(
+        processed_image, dtype=processed_image.dtype.newbyteorder("<")
+    )
+    dims = list(processed_image.shape) + [0] * (3 - processed_image.ndim)
+    header = _IMAGEBYTES_HEADER.pack(
+        1,  # MetadataVersion
+        0,  # ErrorNumber
+        client_transaction_id,
+        server_transaction_id,
+        _IMAGEBYTES_HEADER.size,  # DataStart
+        type_code,
+        type_code,  # TransmissionElementType
+        processed_image.ndim,
+        dims[0],
+        dims[1],
+        dims[2],
+    )
+    return header + data.tobytes()
+
+
+def _encode_image_json(envelope: dict, processed_image: np.ndarray, type_code: int) -> bytes:
+    payload = dict(envelope)
+    payload["Type"] = type_code
+    payload["Rank"] = processed_image.ndim
+    payload["Dimensions"] = list(processed_image.shape)
+    payload["TypeName"] = _IMAGE_TYPE_NAMES.get(type_code, "Unknown")
+    payload["Value"] = processed_image.tolist()
+    return json.dumps(payload, separators=(",", ":")).encode()
+
+
+async def _image_array_response(request: Request) -> Response:
     session = await get_session()
     image = await session.camera_readout()
     if image is None:
         raise HTTPException(status_code=400, detail="Image not ready")
     processed_image, type_code = _resolve_image_array(image)
-    payload = alpaca_response(value=processed_image.tolist())
-    payload["Type"] = type_code
-    payload["Rank"] = processed_image.ndim
-    payload["Dimensions"] = list(processed_image.shape)
-    payload["TypeName"] = _IMAGE_TYPE_NAMES.get(type_code, "Unknown")
-    return payload
+    envelope = alpaca_response()
+    # Large frames (a DWARF 3 FITS is 3856x2180) must never be serialised on the
+    # event loop: doing so blocked every other Alpaca request for ~13 s and NINA
+    # treated the camera as disconnected.
+    if _wants_imagebytes(request):
+        body = await asyncio.to_thread(
+            _encode_imagebytes,
+            processed_image,
+            type_code,
+            int(envelope.get("ClientTransactionID", 0)),
+            int(envelope.get("ServerTransactionID", 0)),
+        )
+        return Response(content=body, media_type=_IMAGEBYTES_MEDIA_TYPE)
+    body = await asyncio.to_thread(_encode_image_json, envelope, processed_image, type_code)
+    return Response(content=body, media_type="application/json")
+
+
+@router.get("/imagearray")
+async def get_image_array(request: Request):
+    return await _image_array_response(request)
 
 
 @router.get("/imagearrayvariant")
-async def get_image_array_variant():
-    session = await get_session()
-    image = await session.camera_readout()
-    if image is None:
-        raise HTTPException(status_code=400, detail="Image not ready")
-    processed_image, type_code = _resolve_image_array(image)
-    payload = alpaca_response(value=processed_image.tolist())
-    payload["Type"] = type_code
-    payload["Rank"] = processed_image.ndim
-    payload["Dimensions"] = list(processed_image.shape)
-    payload["TypeName"] = _IMAGE_TYPE_NAMES.get(type_code, "Unknown")
-    return payload
+async def get_image_array_variant(request: Request):
+    return await _image_array_response(request)
 
 
 @router.get("/numx")
