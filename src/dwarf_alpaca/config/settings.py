@@ -57,7 +57,16 @@ class Settings(BaseSettings):
     # that capture's whole session (raw FITS, stacked FITS, previews) from the
     # DWARF album through POST /album/delete.
     delete_astro_session_after_download: bool = False
-    delete_astro_session_timeout_seconds: float = 90.0
+    delete_astro_session_timeout_seconds: float = 180.0
+    # Opt-in: keep one DWARF astronomy session running for a whole NINA sequence
+    # and hand each new raw FITS to the next StartExposure, instead of opening and
+    # closing a DWARF session per frame (closing takes ~70 s in DSO mode).
+    continuous_astro_session: bool = False
+    continuous_astro_max_frames: int = 999
+    continuous_astro_idle_timeout_seconds: float = 120.0
+    # How long a new capture waits for the DWARF to finish closing the previous
+    # session (DWARF 3 DSO mode needs about 70 s).
+    astro_capture_ready_timeout_seconds: float = 150.0
     go_live_timeout_seconds: float = 5.0
     # Capture strategy for DWARF mini: "astro" (FITS/live-stacking flow) or "photo" (single JPG flow).
     dwarf_mini_capture_mode: str = "astro"

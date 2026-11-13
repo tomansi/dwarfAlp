@@ -90,7 +90,11 @@ the authoritative source.
 | `stream_buffer_seconds` | Live-stream buffer | `1.5` |
 | `ftp_timeout_seconds` / `ftp_poll_interval_seconds` | FITS transfer timeout/poll interval | `10` / `1` |
 | `delete_astro_session_after_download` | **Destructive.** After a FITS is downloaded, delete that capture's whole session (raw, stacked, previews) from the DWARF album via `POST /album/delete` | `false` |
-| `delete_astro_session_timeout_seconds` | How long to wait for the album entry before skipping the deletion | `90` |
+| `delete_astro_session_timeout_seconds` | How long to wait for the album entry before skipping the deletion | `180` |
+| `continuous_astro_session` | Keep one DWARF astronomy session running for consecutive exposures with the same exposure, gain, filter and binning; each StartExposure receives the next raw FITS instead of opening and closing a session (about 70 s on DWARF 3 DSO mode). The session ends on settings change, abort, slew, focuser move, filter change, disconnect or idle timeout | `false` |
+| `continuous_astro_max_frames` | Frame count requested from the DWARF for a continuous session | `999` |
+| `continuous_astro_idle_timeout_seconds` | Stop a continuous session after this long without a new exposure request | `120` |
+| `astro_capture_ready_timeout_seconds` | How long a new capture waits for the DWARF to finish closing the previous session | `150` |
 | `ws_ping_interval_seconds` | WebSocket heartbeat period | `5` |
 | `temperature_refresh_interval_seconds` | Sensor temperature poll period | `5` |
 | `temperature_stale_after_seconds` | Maximum cached-temperature age | `20` |
