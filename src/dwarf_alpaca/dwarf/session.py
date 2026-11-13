@@ -311,6 +311,11 @@ _CMD_PARAM_SET_EXPOSURE = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_EXPOSURE)
 _CMD_PARAM_SET_GAIN = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GAIN)
 _CMD_PARAM_SET_GENERAL_INT = int(protocol_pb2.DwarfCMD.CMD_PARAM_SET_GENERAL_INT_PARAM)
 _V3_ASTRO_MODE_ID = 2
+# Firmware shooting-mode IDs (ResGetDeviceStateInfo.shooting_mode_and_techs on a
+# DWARF 3): 2 = DSO (stacking only); 8 = Sun, a child of 3 (Sun/Moon). Mode 8
+# captures 1920x1080 frames into DWARF_RAW_TELE_Sun_* folders, so deep-sky
+# captures must use mode 2 to get native-resolution FITS.
+_V3_DSO_SHOOTING_MODE = 2
 _V3_ASTRO_CAPTURE_MODE_ID = 11
 _V3_PARAM_MODE_SHIFT = 56
 _V3_PARAM_MODE_VALUE_MASK = (1 << _V3_PARAM_MODE_SHIFT) - 1
@@ -1033,7 +1038,7 @@ class DwarfSession:
         if self.simulation or not self._uses_v3_protocol():
             return
 
-        mode_switch = ReqSwitchShootingMode(mode=8)
+        mode_switch = ReqSwitchShootingMode(mode=_V3_DSO_SHOOTING_MODE)
         mode_response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
             _CMD_TASK_SWITCH_SHOOTING_MODE,
@@ -1043,7 +1048,7 @@ class DwarfSession:
         )
         mode_code = int(getattr(mode_response, "code", protocol_pb2.OK))
         mode = int(getattr(mode_response, "shooting_mode_id", 0))
-        if mode_code != protocol_pb2.OK or mode != 8:
+        if mode_code != protocol_pb2.OK or mode != _V3_DSO_SHOOTING_MODE:
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} did not select astronomy mode "
                 f"(code {mode_code}, mode {mode})"
@@ -2974,7 +2979,7 @@ class DwarfSession:
     async def _prepare_one_click_goto_mode(self) -> None:
         """Mirror the app's V3 mode/camera setup immediately before command 11013."""
 
-        mode_switch = ReqSwitchShootingMode(mode=8)
+        mode_switch = ReqSwitchShootingMode(mode=_V3_DSO_SHOOTING_MODE)
         response = await self._send_request(
             _MODULE_DEVICE_CONFIG,
             _CMD_TASK_SWITCH_SHOOTING_MODE,
@@ -2984,7 +2989,7 @@ class DwarfSession:
         )
         code = int(getattr(response, "code", protocol_pb2.OK))
         mode = int(getattr(response, "shooting_mode_id", 0))
-        if code != protocol_pb2.OK or mode != 8:
+        if code != protocol_pb2.OK or mode != _V3_DSO_SHOOTING_MODE:
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} did not select astronomy mode "
                 f"(code {code}, mode {mode})"

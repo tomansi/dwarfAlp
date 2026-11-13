@@ -117,7 +117,7 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
             response.shooting_mode_id = 8
             return response
         if command_id == 16404:
-            response = ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+            response = ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
             return response
         if command_id == 16403:
             response = ResSwitchShootingTech()
@@ -135,7 +135,7 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
     await session._enter_v3_astro_mode()
 
     assert [command for _, command, _ in calls] == [16402, 16404, 16403, 10050]
-    assert calls[0][2].mode == 8
+    assert calls[0][2].mode == 2
     assert calls[1][2].client_param.encode_type == 1
     assert calls[2][2].tech == 2
     assert calls[3][2].level == 1
@@ -148,7 +148,7 @@ async def test_v3_capture_accepts_legacy_mode_two_confirmation(monkeypatch):
 
     async def fake_send_request(_module_id, command_id, _request, _response_cls, **_kwargs):
         if command_id == 16402:
-            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=8)
+            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=2)
         if command_id == 16404:
             return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
         return ResSwitchShootingTech(code=protocol_pb2.OK, shooting_tech_id=2)
@@ -1333,7 +1333,7 @@ async def test_camera_connect_uses_enter_camera_and_preview_quality_for_all_mode
 
     async def fake_send_request(module_id, command_id, request, _response_cls, **_kwargs):
         captured.append((module_id, command_id, request))
-        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
 
     async def fake_send_and_check(module_id, command_id, request, **_kwargs):
         captured.append((module_id, command_id, request))

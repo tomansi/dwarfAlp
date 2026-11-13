@@ -246,8 +246,8 @@ async def test_one_click_goto_preparation_matches_captured_app_sequence() -> Non
     ):
         calls.append((module_id, command_id, request))
         if command_id == 16402:
-            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=8)
-        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=2)
+        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
 
     async def fake_send_and_check(
         self, module_id, command_id, request, **kwargs
@@ -261,7 +261,7 @@ async def test_one_click_goto_preparation_matches_captured_app_sequence() -> Non
     await session._prepare_one_click_goto_mode()
 
     assert [command for _, command, _ in calls] == [16402, 16404, 10050, 12036]
-    assert calls[0][2].mode == 8
+    assert calls[0][2].mode == 2
     assert calls[1][2].client_param.encode_type == 1
     assert calls[2][2].level == 1
     assert calls[3][2].level == 1
