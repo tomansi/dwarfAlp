@@ -188,9 +188,7 @@ def test_camera_gain_and_offset_controls():
 
     resp = client.get("/api/v1/camera/0/gains")
     assert resp.status_code == 200
-    gains_list = _value(resp)
-    assert isinstance(gains_list, list) and all(isinstance(v, int) for v in gains_list)
-    assert gains_list[-1] == 200
+    assert resp.json()["ErrorNumber"] == 0x400  # value mode only (ASCOM)
 
     resp = client.get("/api/v1/camera/0/gain")
     assert resp.status_code == 200
@@ -227,7 +225,7 @@ def test_camera_gain_and_offset_controls():
     assert offset_max >= offset_min
 
     resp = client.put("/api/v1/camera/0/gain", json={"Gain": gain_max + 1})
-    assert resp.status_code == 400
+    assert resp.status_code == 200 and resp.json()["ErrorNumber"] == 0x401
 
     resp = client.put("/api/v1/camera/0/offset", json={"Offset": -1})
     assert resp.status_code == 400

@@ -383,7 +383,15 @@ async def set_gain(request: Request, Gain: int | None = Query(None, alias="Gain"
     _sync_state_to_profile()
     value = await resolve_parameter(request, "Gain", int, Gain)
     if value < state.gain_min or value > state.gain_max:
-        raise HTTPException(status_code=400, detail="Gain out of range")
+        # Report an Alpaca InvalidValue (0x401) with HTTP 200 instead of an HTTP
+        # 400. Clients such as NINA treat any other failure as "gain not
+        # settable" and permanently grey out the gain control until reconnect.
+        return alpaca_response(
+            error_number=0x401,
+            error_message=(
+                f"Gain {value} out of range ({state.gain_min}-{state.gain_max})"
+            ),
+        )
     state.gain = value
     return alpaca_response()
 
@@ -964,13 +972,24 @@ async def set_bin_y(request: Request, BinY: int | None = Query(None, alias="BinY
     return alpaca_response()
 
 
+# ASCOM/Alpaca: Gain works either in "GAIN VALUE" mode (GainMin/GainMax) or in
+# "GAINS INDEX" mode (Gains list, Gain = index). Both must not be active at the
+# same time. This driver uses value mode, so Gains must report NotImplemented
+# (0x400); otherwise clients such as NINA mix the two modes and lock the gain.
+_NOT_IMPLEMENTED = 0x400
+
+
 @router.get("/cameragains")
 def get_camera_gains():
-    _sync_state_to_profile()
-    return alpaca_response(value=_gain_steps())
+    return alpaca_response(
+        error_number=_NOT_IMPLEMENTED,
+        error_message="Gains is not implemented: gain uses GainMin/GainMax value mode",
+    )
 
 
 @router.get("/gains")
 def get_available_gains():
-    _sync_state_to_profile()
-    return alpaca_response(value=_gain_steps())
+    return alpaca_response(
+        error_number=_NOT_IMPLEMENTED,
+        error_message="Gains is not implemented: gain uses GainMin/GainMax value mode",
+    )
