@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     camera_gain_command_timeout_seconds: float = 2.0
     camera_disconnect_timeout_seconds: float = 5.0
     go_live_before_exposure: bool = True
+    # Destructive and opt-in: after an astronomy FITS has been downloaded, delete
+    # that capture's whole session (raw FITS, stacked FITS, previews) from the
+    # DWARF album through POST /album/delete.
+    delete_astro_session_after_download: bool = False
+    delete_astro_session_timeout_seconds: float = 90.0
     go_live_timeout_seconds: float = 5.0
     # Capture strategy for DWARF mini: "astro" (FITS/live-stacking flow) or "photo" (single JPG flow).
     dwarf_mini_capture_mode: str = "astro"

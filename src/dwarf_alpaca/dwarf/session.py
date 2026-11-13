@@ -564,6 +564,8 @@ class DwarfSession:
         self._astro_capture_ready_event.set()
         self._astro_capture_operation_state: int | None = None
         self._capture_start_response_task: asyncio.Task[None] | None = None
+        self._astro_cleanup_tasks: set[asyncio.Task[None]] = set()
+        self._astro_cleanup_lock = asyncio.Lock()
         self._capture_stop_response_task: asyncio.Task[None] | None = None
         self._ws_bootstrapped = False
         self.camera_state = CameraState()
@@ -2474,6 +2476,14 @@ class DwarfSession:
                 await self._http_client.aclose()
 
     async def shutdown(self) -> None:
+        cleanup_tasks = list(self._astro_cleanup_tasks)
+        if cleanup_tasks:
+            # Let queued deletions finish briefly; anything left stays on the device.
+            await asyncio.wait(cleanup_tasks, timeout=10.0)
+            for task in cleanup_tasks:
+                if not task.done():
+                    task.cancel()
+                    logger.warning("dwarf.camera.astro_cleanup_cancelled_on_shutdown")
         if self.camera_state.capture_task and not self.camera_state.capture_task.done():
             self.camera_state.capture_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -6470,6 +6480,158 @@ class DwarfSession:
         if astro_mode and image_captured:
             await self._astro_go_live()
         state.capture_phase = CapturePhase.READY if image_captured else CapturePhase.FAILED
+        if astro_mode and image_captured and not self.simulation:
+            self._schedule_astro_session_cleanup(state)
+
+    @staticmethod
+    def _astro_session_folder(path: str | None) -> str | None:
+        """Return the DWARF_RAW_* session folder name of a downloaded FITS path."""
+
+        if not isinstance(path, str) or not path.strip():
+            return None
+        parts = [part for part in path.strip().replace("\\", "/").split("/") if part]
+        if len(parts) < 2:
+            return None
+        folder = parts[-2]
+        if not folder.startswith("DWARF_RAW_"):
+            return None
+        return folder
+
+    @classmethod
+    def _album_entry_matches_folder(cls, entry: dict[str, Any], folder: str) -> bool:
+        src_dir = cls._album_astro_src_dir(entry)
+        if not src_dir:
+            return False
+        parts = [part for part in src_dir.replace("\\", "/").split("/") if part]
+        return bool(parts) and parts[-1] == folder
+
+    def _schedule_astro_session_cleanup(self, state: CameraState) -> None:
+        if not getattr(self.settings, "delete_astro_session_after_download", False):
+            return
+        folder = self._astro_session_folder(state.retrieved_file_path)
+        if folder is None:
+            logger.warning(
+                "dwarf.camera.astro_cleanup_skipped",
+                capture_id=state.capture_id,
+                reason="no_dwarf_raw_folder",
+                path=state.retrieved_file_path,
+            )
+            return
+        task = asyncio.create_task(
+            self._delete_astro_session(folder, capture_id=state.capture_id)
+        )
+        self._astro_cleanup_tasks.add(task)
+        task.add_done_callback(self._astro_cleanup_tasks.discard)
+
+    async def _find_album_astro_entry(self, folder: str) -> dict[str, Any] | None:
+        entries = await self._http_client.list_album_media_infos(
+            media_type=4, page_index=0, page_size=10
+        )
+        matches = [entry for entry in entries if self._album_entry_matches_folder(entry, folder)]
+        if len(matches) != 1:
+            if len(matches) > 1:
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_ambiguous",
+                    folder=folder,
+                    matches=len(matches),
+                )
+            return None
+        return matches[0]
+
+    async def _delete_astro_session(self, folder: str, *, capture_id: Any = None) -> None:
+        """Delete one downloaded capture session from the DWARF album.
+
+        Only the album entry whose srcDir is exactly the folder of the FITS that was
+        just downloaded is deleted. Any doubt (no match, several matches, missing
+        fields) skips the deletion and logs why.
+        """
+
+        timeout = float(
+            getattr(self.settings, "delete_astro_session_timeout_seconds", 90.0)
+        )
+        async with self._astro_cleanup_lock:
+            # The album entry and stacked products appear only after the firmware
+            # finalizes the stopped session.
+            await asyncio.sleep(3.0)
+            deadline = time.monotonic() + max(timeout, 5.0)
+            entry: dict[str, Any] | None = None
+            while time.monotonic() < deadline:
+                try:
+                    entry = await self._find_album_astro_entry(folder)
+                except Exception as exc:  # pragma: no cover - hardware dependent
+                    logger.warning(
+                        "dwarf.camera.astro_cleanup_list_failed",
+                        folder=folder,
+                        error=str(exc),
+                    )
+                    entry = None
+                if entry is not None:
+                    break
+                await asyncio.sleep(3.0)
+            if entry is None:
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_skipped",
+                    capture_id=capture_id,
+                    folder=folder,
+                    reason="album_entry_not_found",
+                )
+                return
+
+            file_name = entry.get("fileName")
+            file_path = entry.get("filePath")
+            if not isinstance(file_name, str) or not file_name:
+                file_name = None
+            if not isinstance(file_path, str) or not file_path:
+                file_path = None
+            if file_name is None or file_path is None:
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_skipped",
+                    capture_id=capture_id,
+                    folder=folder,
+                    reason="album_entry_incomplete",
+                    keys=sorted(entry.keys()),
+                )
+                return
+            try:
+                media_type = int(entry.get("mediaType", 4))
+            except (TypeError, ValueError):
+                media_type = 4
+            try:
+                sub_type = int(entry.get("subType", 0))
+            except (TypeError, ValueError):
+                sub_type = 0
+            item = {
+                "mediaType": media_type,
+                "fileName": file_name,
+                "subType": sub_type,
+                "filePath": file_path,
+            }
+            try:
+                response = await self._http_client.delete_album_media([item])
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.camera.astro_cleanup_failed",
+                    capture_id=capture_id,
+                    folder=folder,
+                    item=item,
+                    error=str(exc),
+                )
+                return
+
+            still_present: bool | None = None
+            try:
+                still_present = await self._find_album_astro_entry(folder) is not None
+            except Exception:  # pragma: no cover - hardware dependent
+                still_present = None
+            log = logger.info if still_present is False else logger.warning
+            log(
+                "dwarf.camera.astro_cleanup_deleted",
+                capture_id=capture_id,
+                folder=folder,
+                item=item,
+                response=response,
+                still_present=still_present,
+            )
 
     async def _attempt_ftp_capture(self, state: CameraState) -> bool:
         baseline = state.pending_ftp_baseline

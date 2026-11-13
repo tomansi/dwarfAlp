@@ -89,6 +89,8 @@ the authoritative source.
 | `http_timeout_seconds` / `http_retries` | Device HTTP timeout/retry count | `5` / `3` |
 | `stream_buffer_seconds` | Live-stream buffer | `1.5` |
 | `ftp_timeout_seconds` / `ftp_poll_interval_seconds` | FITS transfer timeout/poll interval | `10` / `1` |
+| `delete_astro_session_after_download` | **Destructive.** After a FITS is downloaded, delete that capture's whole session (raw, stacked, previews) from the DWARF album via `POST /album/delete` | `false` |
+| `delete_astro_session_timeout_seconds` | How long to wait for the album entry before skipping the deletion | `90` |
 | `ws_ping_interval_seconds` | WebSocket heartbeat period | `5` |
 | `temperature_refresh_interval_seconds` | Sensor temperature poll period | `5` |
 | `temperature_stale_after_seconds` | Maximum cached-temperature age | `20` |
