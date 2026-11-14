@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QSpinBox,
     QSplitter,
@@ -208,10 +207,6 @@ class SettingsOverridesWidget(QGroupBox):
         for tz in TIMEZONE_CHOICES:
             self.timezone_combo.addItem(tz, tz)
 
-        self.profile_path_label = QLabel()
-        self.profile_path_label.setWordWrap(True)
-        self.profile_path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-
         self.device_model_combo.currentIndexChanged.connect(self._sync_client_id_for_selected_model)
         self.device_model_combo.currentIndexChanged.connect(self._sync_calibration_availability)
 
@@ -230,16 +225,7 @@ class SettingsOverridesWidget(QGroupBox):
         form.addRow("Preflight timeout", self.preflight_timeout_spin)
         form.addRow("Preflight interval", self.preflight_interval_spin)
         form.addRow("Timezone", self.timezone_combo)
-        form.addRow("Settings profile", self.profile_path_label)
         self.setLayout(form)
-
-    def set_profile_path(self, path: Optional[Path], *, exists: bool) -> None:
-        if path is None:
-            self.profile_path_label.setText("None (environment / .env only)")
-        elif exists:
-            self.profile_path_label.setText(str(path))
-        else:
-            self.profile_path_label.setText(f"{path} (not saved yet)")
 
     def populate(self, settings: Settings) -> None:
         self.http_host_edit.setText(settings.http_host)
@@ -818,11 +804,7 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.addTab(self.server_widget, "Server")
         tabs.addTab(self.provisioning_widget, "Provisioning")
-        settings_scroll = QScrollArea()
-        settings_scroll.setWidgetResizable(True)
-        settings_scroll.setFrameShape(QFrame.NoFrame)
-        settings_scroll.setWidget(self.settings_widget)
-        tabs.addTab(settings_scroll, "Settings")
+        tabs.addTab(self.settings_widget, "Settings")
         capture_page = QWidget()
         capture_layout = QVBoxLayout(capture_page)
         capture_layout.addWidget(self.capture_widget)
@@ -863,9 +845,7 @@ class MainWindow(QMainWindow):
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
-                " and enter or fetch observer coordinates before optional post-start calibration."
-                " Use File &gt; Save settings profile to store the Settings and Capture tabs"
-                f" in {DEFAULT_PROFILE_NAME}, which is loaded at start-up.",
+                " and enter or fetch observer coordinates before optional post-start calibration.",
             ),
             3: (
                 "Capture",
@@ -960,7 +940,6 @@ class MainWindow(QMainWindow):
         self._settings = settings
         self._settings_path = path
         self._profile_keys = set(PROFILE_KEYS)
-        self.settings_widget.set_profile_path(path, exists=True)
         self.statusBar().showMessage(f"Saved settings profile to {path}", 5000)
         logging.getLogger(__name__).info("gui.settings_profile_saved path=%s", path)
 
@@ -981,9 +960,6 @@ class MainWindow(QMainWindow):
         self._state_store = create_state_store(settings.state_directory)
         self.settings_widget.populate(settings)
         self.capture_widget.populate(settings)
-        self.settings_widget.set_profile_path(
-            path or default_profile_path(), exists=path is not None
-        )
         self.provisioning_widget.set_ble_password(settings.ble_password or "DWARF_12345678")
         self.statusBar().showMessage(
             f"Loaded settings from {path}" if path else "Loaded default environment settings",
