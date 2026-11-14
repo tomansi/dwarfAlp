@@ -419,6 +419,15 @@ class ActivityTranslator:
             delay = f" · {max(0.0, t - float(f.get('frame_end'))):.0f} s after the exposure ended"
         except (TypeError, ValueError):
             pass
+        if f.get("stacking_failed"):
+            return [
+                ActivityEntry(
+                    t,
+                    WARN,
+                    f"Frame {number} delivered to NINA{size}{delay} · the DWARF could not "
+                    "stack it (few stars, clouds or trailing?)",
+                )
+            ]
         return [ActivityEntry(t, OK, f"Frame {number} delivered to NINA{size}{delay}")]
 
     def _on_frame_skipped(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:

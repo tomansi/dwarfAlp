@@ -6639,6 +6639,26 @@ class DwarfSession:
         )
         state.capture_task = asyncio.create_task(self._fetch_continuous_frame(state, cont))
 
+    _FAILED_FRAME_PREFIX = "failed_"
+
+    @classmethod
+    def _continuous_frame_key(cls, entry: FtpPhotoEntry) -> str:
+        """Identity of a raw frame that survives the firmware's ``failed_`` rename.
+
+        When the DWARF cannot stack a frame (few stars, trailing, lens cap on) it
+        renames ``30s40_..._29C.fits`` to ``failed_30s40_..._29C.fits`` a few
+        seconds after writing it. Both names are the same exposure.
+        """
+
+        name = entry.name
+        if name.lower().startswith(cls._FAILED_FRAME_PREFIX):
+            name = name[len(cls._FAILED_FRAME_PREFIX) :]
+        return f"{entry.directory.rstrip('/')}/{name}"
+
+    @classmethod
+    def _is_failed_stack_frame(cls, entry: FtpPhotoEntry) -> bool:
+        return entry.name.lower().startswith(cls._FAILED_FRAME_PREFIX)
+
     @staticmethod
     def _select_continuous_frame(
         entries: list[FtpPhotoEntry],
@@ -6652,6 +6672,7 @@ class DwarfSession:
     ) -> tuple[FtpPhotoEntry | None, list[FtpPhotoEntry]]:
         """Pick the frame to hand to the current exposure request.
 
+        ``delivered`` holds frame keys (see ``_continuous_frame_key``).
         ``entry.timestamp`` is the time the DWARF wrote the frame (end of the
         exposure). Frames that started before the session (or before anything
         that invalidated it) are never used. Frames that finished before the
@@ -6660,15 +6681,19 @@ class DwarfSession:
         frame is chosen so frames are delivered in order.
         """
 
-        candidates = sorted(
-            (
-                entry
-                for entry in entries
-                if entry.path not in delivered
-                and entry.timestamp - duration >= valid_after - clock_tolerance
-            ),
-            key=lambda item: (item.timestamp, item.path),
-        )
+        # One candidate per exposure: if both the original and the ``failed_``
+        # name are listed (rename in progress), keep the renamed one.
+        by_key: dict[str, FtpPhotoEntry] = {}
+        for entry in entries:
+            key = DwarfSession._continuous_frame_key(entry)
+            if key in delivered:
+                continue
+            if entry.timestamp - duration < valid_after - clock_tolerance:
+                continue
+            current = by_key.get(key)
+            if current is None or DwarfSession._is_failed_stack_frame(entry):
+                by_key[key] = entry
+        candidates = sorted(by_key.values(), key=lambda item: (item.timestamp, item.path))
         skipped = [
             entry for entry in candidates if entry.timestamp < requested_at - freshness_tolerance
         ]
@@ -6681,9 +6706,13 @@ class DwarfSession:
         # The FTP listing can show a FITS while the firmware is still writing it,
         # so a decode failure is retried briefly instead of failing the exposure.
         for attempt in range(1, 5):
+            path = entry.path
+            if attempt % 2 == 0 and not self._is_failed_stack_frame(entry):
+                # The firmware may have renamed the frame to failed_* meanwhile.
+                path = f"{entry.directory.rstrip('/')}/{self._FAILED_FRAME_PREFIX}{entry.name}"
             try:
-                content = await self._ftp_client.download(entry.path)
-                return self._decode_capture_content(entry.path, content)
+                content = await self._ftp_client.download(path)
+                return self._decode_capture_content(path, content)
             except Exception as exc:  # pragma: no cover - hardware dependent
                 logger.info(
                     "dwarf.camera.continuous_frame_retry",
@@ -6745,7 +6774,7 @@ class DwarfSession:
                 clock_tolerance=self._CONTINUOUS_CLOCK_TOLERANCE_SECONDS,
             )
             for entry in skipped:
-                cont.delivered.add(entry.path)
+                cont.delivered.add(self._continuous_frame_key(entry))
                 cont.frames_skipped += 1
                 logger.info(
                     "dwarf.camera.continuous_frame_skipped",
@@ -6759,7 +6788,7 @@ class DwarfSession:
                 if self._continuous is not cont or state.capture_id != capture_id:
                     continue
                 if frame is not None:
-                    cont.delivered.add(chosen.path)
+                    cont.delivered.add(self._continuous_frame_key(chosen))
                     cont.frames_delivered += 1
                     cont.last_activity = time.monotonic()
                     self._store_frame(state, frame, chosen.timestamp)
@@ -6776,9 +6805,10 @@ class DwarfSession:
                         requested_at=requested_at,
                         frames_delivered=cont.frames_delivered,
                         frames_skipped=cont.frames_skipped,
+                        stacking_failed=self._is_failed_stack_frame(chosen),
                     )
                     return
-                cont.delivered.add(chosen.path)
+                cont.delivered.add(self._continuous_frame_key(chosen))
                 cont.frames_skipped += 1
                 logger.warning("dwarf.camera.continuous_frame_unreadable", path=chosen.path)
                 continue

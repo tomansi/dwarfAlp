@@ -176,3 +176,26 @@ async def test_deferred_start_skipped_after_abort() -> None:
     )
     await session.camera_state.capture_task
     assert started == []
+
+
+def test_failed_rename_is_the_same_frame() -> None:
+    # Delivered as "a.fits", later renamed by the firmware to "failed_a.fits".
+    entries = [_entry("failed_a.fits", 100.0), _entry("b.fits", 130.0)]
+    delivered = {f"{FOLDER}/a.fits"}
+    chosen, skipped = DwarfSession._select_continuous_frame(
+        entries, delivered=delivered, duration=30.0, valid_after=60.0, requested_at=110.0
+    )
+    assert chosen is not None and chosen.name == "b.fits"
+    assert skipped == []
+
+
+def test_rename_in_progress_yields_one_candidate() -> None:
+    entries = [_entry("a.fits", 100.0), _entry("failed_a.fits", 100.0)]
+    chosen, skipped = DwarfSession._select_continuous_frame(
+        entries, delivered=set(), duration=30.0, valid_after=60.0, requested_at=90.0
+    )
+    assert chosen is not None and chosen.name == "failed_a.fits"
+    assert skipped == []
+    assert DwarfSession._continuous_frame_key(entries[0]) == DwarfSession._continuous_frame_key(
+        entries[1]
+    )
