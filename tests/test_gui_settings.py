@@ -333,3 +333,24 @@ def test_profile_ip_wins_over_remembered_sta_ip(qapp, tmp_path):
         assert reopened._build_settings_for_server().dwarf_ap_ip == "192.168.7.81"
     finally:
         reopened.close()
+
+
+def test_activity_and_technical_log_tabs(qapp):
+    from dwarf_alpaca.gui.activity import ActivityEntry, WARN
+
+    window = MainWindow()
+    try:
+        assert window.log_tabs.tabText(0) == "Activity"
+        assert window.log_tabs.tabText(1) == "Technical"
+        console = window.activity_console
+        for second in range(3):
+            console.append_entry(ActivityEntry(second, WARN, "Frame skipped", group="skip"))
+        console.append_entry(ActivityEntry(4, WARN, "Other"))
+        lines = console.toPlainText().splitlines()
+        assert len(lines) == 2
+        assert "Frame skipped" in lines[0] and "(×3)" in lines[0]
+        assert "Other" in lines[1]
+        window._handle_activity_record('{"event": "dwarf.battery.notification", "battery_percent": 80}', 5.0)
+        assert "Battery 80 %" in window.activity_status_label.text()
+    finally:
+        window.close()

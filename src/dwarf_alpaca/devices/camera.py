@@ -386,6 +386,12 @@ async def set_gain(request: Request, Gain: int | None = Query(None, alias="Gain"
     _sync_state_to_profile()
     value = await resolve_parameter(request, "Gain", int, Gain)
     if value < state.gain_min or value > state.gain_max:
+        logger.warning(
+            "alpaca.camera.gain_rejected",
+            requested=value,
+            minimum=state.gain_min,
+            maximum=state.gain_max,
+        )
         # Report an Alpaca InvalidValue (0x401) with HTTP 200 instead of an HTTP
         # 400. Clients such as NINA treat any other failure as "gain not
         # settable" and permanently grey out the gain control until reconnect.

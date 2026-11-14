@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import html
 import logging
 import sys
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +13,7 @@ import httpx
 import structlog
 import yaml
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QIcon, QKeySequence
+from PySide6.QtGui import QAction, QIcon, QKeySequence, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -49,7 +51,8 @@ from ..config.settings import Settings, load_settings, normalize_dwarf_device_mo
 from ..dwarf.ble_provisioner import DwarfBleProvisioner, ProvisioningError
 from ..dwarf.state import ConnectivityState, StateStore
 from ..provisioning.workflow import create_state_store, provision_sta
-from .logging import QtLogHandler
+from .activity import COLORS, ICONS, ActivityEntry, ActivityTranslator
+from .logging import ActivityLogHandler, QtLogHandler
 from .server import ServerService, ServerStatus
 from .workers import AsyncWorker
 
@@ -150,6 +153,55 @@ class LogConsole(QTextEdit):
         formatted = f'<span style="color:{color}">{message}</span>'
         self.append(formatted)
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
+
+class ActivityConsole(QTextEdit):
+    """Plain-language activity feed; repeated messages are merged (×N)."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self._last_group: Optional[str] = None
+        self._last_entry: Optional[ActivityEntry] = None
+        self._repeat = 0
+
+    def append_entry(self, entry: ActivityEntry) -> None:
+        if entry.group and entry.group == self._last_group and self._last_entry:
+            self._repeat += 1
+            self._remove_last_line()
+            self._write(entry, self._repeat)
+        else:
+            self._repeat = 1
+            self._write(entry, 1)
+        self._last_group = entry.group
+        self._last_entry = entry
+        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
+    def _write(self, entry: ActivityEntry, repeat: int) -> None:
+        stamp = time.strftime("%H:%M:%S", time.localtime(entry.timestamp))
+        color = COLORS.get(entry.kind, "#333333")
+        icon = ICONS.get(entry.kind, "•")
+        suffix = f" <b>(×{repeat})</b>" if repeat > 1 else ""
+        self.append(
+            f'<span style="color:#888888">{stamp}</span>&nbsp;&nbsp;'
+            f'<span style="color:{color}">{icon}&nbsp;{html.escape(entry.text)}</span>{suffix}'
+        )
+
+    def _remove_last_line(self) -> None:
+        document = self.document()
+        if document.blockCount() <= 1:
+            self.clear()
+            return
+        # Select from the end of the previous block to the end of the document,
+        # i.e. the last line together with its preceding paragraph separator.
+        cursor = QTextCursor(document)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.PreviousCharacter, QTextCursor.MoveMode.MoveAnchor
+        )
+        cursor.movePosition(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
 
 
 class SettingsOverridesWidget(QGroupBox):
@@ -774,6 +826,19 @@ class MainWindow(QMainWindow):
         )
         self.log_handler.emitter.message.connect(self.log_console.append_message)
         logging.getLogger().addHandler(self.log_handler)
+
+        self.activity_translator = ActivityTranslator()
+        self.activity_console = ActivityConsole()
+        self.activity_status_label = QLabel()
+        self.activity_status_label.setWordWrap(True)
+        self.activity_status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.activity_status_label.setStyleSheet(
+            "QLabel { font-weight: bold; padding: 4px 6px; background: #eef3f8; "
+            "border: 1px solid #c8d4e0; border-radius: 3px; }"
+        )
+        self.activity_handler = ActivityLogHandler()
+        self.activity_handler.emitter.record.connect(self._handle_activity_record)
+        logging.getLogger().addHandler(self.activity_handler)
         logging.getLogger().setLevel(logging.INFO)
 
         self.settings_widget = SettingsOverridesWidget()
@@ -819,7 +884,16 @@ class MainWindow(QMainWindow):
         self.help_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         upper_layout.addWidget(self.help_panel, 1)
         splitter.addWidget(upper)
-        splitter.addWidget(self.log_console)
+        log_panel = QWidget()
+        log_layout = QVBoxLayout(log_panel)
+        log_layout.setContentsMargins(0, 0, 0, 0)
+        log_layout.addWidget(self.activity_status_label)
+        self.log_tabs = QTabWidget()
+        self.log_tabs.addTab(self.activity_console, "Activity")
+        self.log_tabs.addTab(self.log_console, "Technical")
+        log_layout.addWidget(self.log_tabs)
+        self._refresh_activity_status()
+        splitter.addWidget(log_panel)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
         content_layout.addWidget(splitter)
@@ -973,9 +1047,19 @@ class MainWindow(QMainWindow):
             )
         return self._settings
 
+    def _handle_activity_record(self, message: str, created: float) -> None:
+        for entry in self.activity_translator.feed(message, created):
+            self.activity_console.append_entry(entry)
+        self._refresh_activity_status()
+
+    def _refresh_activity_status(self) -> None:
+        self.activity_status_label.setText(self.activity_translator.status.render())
+
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.log_handler.emitter.message.disconnect(self.log_console.append_message)
         logging.getLogger().removeHandler(self.log_handler)
+        self.activity_handler.emitter.record.disconnect(self._handle_activity_record)
+        logging.getLogger().removeHandler(self.activity_handler)
         if self.server_service.is_running():
             self.server_service.stop()
         super().closeEvent(event)
@@ -1441,6 +1525,11 @@ class MainWindow(QMainWindow):
         return override
 
     def _launch_server(self, settings: Settings) -> None:
+        self.activity_translator.configure(
+            model=normalize_dwarf_device_model(settings.dwarf_device_model),
+            ip=settings.dwarf_ap_ip,
+        )
+        self._refresh_activity_status()
         try:
             self.server_service.start(settings)
         except Exception as exc:
