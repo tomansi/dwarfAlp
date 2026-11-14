@@ -1469,6 +1469,13 @@ class MainWindow(QMainWindow):
                 "starting the server with calibration enabled.",
             )
             return
+        # Seed the Activity status before the connectivity preflight so its
+        # messages can name the DWARF and its IP.
+        self.activity_translator.configure(
+            model=normalize_dwarf_device_model(settings.dwarf_device_model),
+            ip=settings.dwarf_ap_ip,
+        )
+        self._refresh_activity_status()
         skip_preflight = self.settings_widget.skip_preflight_checkbox.isChecked()
         self._pending_start = (settings, skip_preflight)
         # Starting against an already reachable STA/AP address must not trigger
