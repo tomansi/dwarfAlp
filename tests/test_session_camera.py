@@ -114,7 +114,7 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
         if command_id == 16402:
             response = ResSwitchShootingMode()
             response.code = protocol_pb2.OK
-            response.shooting_mode_id = 8
+            response.shooting_mode_id = 2
             return response
         if command_id == 16404:
             response = ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
