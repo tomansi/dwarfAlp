@@ -208,40 +208,6 @@ class SettingsOverridesWidget(QGroupBox):
         for tz in TIMEZONE_CHOICES:
             self.timezone_combo.addItem(tz, tz)
 
-        # Capture options (DWARF 3 + NINA)
-        self.continuous_session_checkbox = QCheckBox(
-            "Continuous DWARF session for NINA sequences"
-        )
-        self.continuous_session_checkbox.setToolTip(
-            "Keep one DWARF session running while exposure, gain, filter and binning "
-            "stay the same; each NINA exposure gets the next FITS."
-        )
-        self.continuous_idle_spin = QSpinBox()
-        self.continuous_idle_spin.setRange(10, 3600)
-        self.continuous_idle_spin.setSuffix(" s")
-        self.continuous_idle_spin.setToolTip(
-            "Stop the continuous session after this long without a new exposure."
-        )
-        self.continuous_max_frames_spin = QSpinBox()
-        self.continuous_max_frames_spin.setRange(2, 9999)
-        self.continuous_max_frames_spin.setToolTip(
-            "Frame count requested from the DWARF for a continuous session."
-        )
-        self.delete_session_checkbox = QCheckBox(
-            "Delete DWARF session after download (removes files from the telescope)"
-        )
-        self.delete_timeout_spin = QSpinBox()
-        self.delete_timeout_spin.setRange(30, 1800)
-        self.delete_timeout_spin.setSuffix(" s")
-        self.delete_timeout_spin.setToolTip(
-            "How long to wait for the DWARF to close the session before skipping deletion."
-        )
-        self.ready_timeout_spin = QSpinBox()
-        self.ready_timeout_spin.setRange(30, 1800)
-        self.ready_timeout_spin.setSuffix(" s")
-        self.ready_timeout_spin.setToolTip(
-            "How long a new capture waits for the DWARF to close the previous session."
-        )
         self.profile_path_label = QLabel()
         self.profile_path_label.setWordWrap(True)
         self.profile_path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -264,24 +230,8 @@ class SettingsOverridesWidget(QGroupBox):
         form.addRow("Preflight timeout", self.preflight_timeout_spin)
         form.addRow("Preflight interval", self.preflight_interval_spin)
         form.addRow("Timezone", self.timezone_combo)
-        capture_title = QLabel("<b>Capture (DWARF 3 + NINA)</b>")
-        form.addRow(capture_title)
-        form.addRow(self.continuous_session_checkbox)
-        form.addRow("Continuous idle timeout", self.continuous_idle_spin)
-        form.addRow("Continuous max frames", self.continuous_max_frames_spin)
-        form.addRow(self.delete_session_checkbox)
-        form.addRow("Deletion wait timeout", self.delete_timeout_spin)
-        form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
         form.addRow("Settings profile", self.profile_path_label)
-        self.continuous_session_checkbox.toggled.connect(self._sync_capture_option_state)
-        self.delete_session_checkbox.toggled.connect(self._sync_capture_option_state)
         self.setLayout(form)
-
-    def _sync_capture_option_state(self) -> None:
-        continuous = self.continuous_session_checkbox.isChecked()
-        self.continuous_idle_spin.setEnabled(continuous)
-        self.continuous_max_frames_spin.setEnabled(continuous)
-        self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
 
     def set_profile_path(self, path: Optional[Path], *, exists: bool) -> None:
         if path is None:
@@ -312,19 +262,6 @@ class SettingsOverridesWidget(QGroupBox):
         self.preflight_timeout_spin.setValue(180)
         self.preflight_interval_spin.setValue(5)
         self.set_timezone_name(settings.timezone_name)
-        self.continuous_session_checkbox.setChecked(settings.continuous_astro_session)
-        self.continuous_idle_spin.setValue(
-            int(round(settings.continuous_astro_idle_timeout_seconds))
-        )
-        self.continuous_max_frames_spin.setValue(int(settings.continuous_astro_max_frames))
-        self.delete_session_checkbox.setChecked(settings.delete_astro_session_after_download)
-        self.delete_timeout_spin.setValue(
-            int(round(settings.delete_astro_session_timeout_seconds))
-        )
-        self.ready_timeout_spin.setValue(
-            int(round(settings.astro_capture_ready_timeout_seconds))
-        )
-        self._sync_capture_option_state()
 
     def apply(self, settings: Settings) -> Settings:
         data = settings.model_dump()
@@ -360,20 +297,6 @@ class SettingsOverridesWidget(QGroupBox):
                     self.site_longitude_edit.text(), "Longitude", -180.0, 180.0
                 ),
                 "timezone_name": timezone_name,
-                "continuous_astro_session": self.continuous_session_checkbox.isChecked(),
-                "continuous_astro_idle_timeout_seconds": float(
-                    self.continuous_idle_spin.value()
-                ),
-                "continuous_astro_max_frames": self.continuous_max_frames_spin.value(),
-                "delete_astro_session_after_download": (
-                    self.delete_session_checkbox.isChecked()
-                ),
-                "delete_astro_session_timeout_seconds": float(
-                    self.delete_timeout_spin.value()
-                ),
-                "astro_capture_ready_timeout_seconds": float(
-                    self.ready_timeout_spin.value()
-                ),
             }
         )
         return settings.model_validate(data)
@@ -674,6 +597,111 @@ def _resolve_state_directory(path: Path) -> Path:
     return (base / path).resolve()
 
 
+class CaptureOptionsWidget(QGroupBox):
+    """Capture options added for DWARF 3 + NINA (continuous session, cleanup)."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__("Capture options", parent)
+        form = QFormLayout()
+
+        self.compatibility_label = QLabel(
+            "<b>Tested with DWARF 3 only.</b> These options have not been tested "
+            "with DWARF 2 or DWARF mini; keep them off on those models unless you "
+            "are testing them."
+        )
+        self.compatibility_label.setWordWrap(True)
+        self.compatibility_label.setStyleSheet(
+            "QLabel { background: #fff4ce; color: #5c4400; padding: 8px; "
+            "border: 1px solid #e0c060; border-radius: 4px; }"
+        )
+
+        self.continuous_session_checkbox = QCheckBox(
+            "Continuous DWARF session for NINA sequences"
+        )
+        self.continuous_session_checkbox.setToolTip(
+            "Keep one DWARF session running while exposure, gain, filter and binning "
+            "stay the same; each NINA exposure gets the next FITS."
+        )
+        self.continuous_idle_spin = QSpinBox()
+        self.continuous_idle_spin.setRange(10, 3600)
+        self.continuous_idle_spin.setSuffix(" s")
+        self.continuous_idle_spin.setToolTip(
+            "Stop the continuous session after this long without a new exposure."
+        )
+        self.continuous_max_frames_spin = QSpinBox()
+        self.continuous_max_frames_spin.setRange(2, 9999)
+        self.continuous_max_frames_spin.setToolTip(
+            "Frame count requested from the DWARF for a continuous session."
+        )
+        self.delete_session_checkbox = QCheckBox(
+            "Delete DWARF session after download (removes files from the telescope)"
+        )
+        self.delete_timeout_spin = QSpinBox()
+        self.delete_timeout_spin.setRange(30, 1800)
+        self.delete_timeout_spin.setSuffix(" s")
+        self.delete_timeout_spin.setToolTip(
+            "How long to wait for the DWARF to close the session before skipping deletion."
+        )
+        self.ready_timeout_spin = QSpinBox()
+        self.ready_timeout_spin.setRange(30, 1800)
+        self.ready_timeout_spin.setSuffix(" s")
+        self.ready_timeout_spin.setToolTip(
+            "How long a new capture waits for the DWARF to close the previous session."
+        )
+
+        form.addRow(self.compatibility_label)
+        form.addRow(self.continuous_session_checkbox)
+        form.addRow("Continuous idle timeout", self.continuous_idle_spin)
+        form.addRow("Continuous max frames", self.continuous_max_frames_spin)
+        form.addRow(self.delete_session_checkbox)
+        form.addRow("Deletion wait timeout", self.delete_timeout_spin)
+        form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
+        self.continuous_session_checkbox.toggled.connect(self._sync_state)
+        self.delete_session_checkbox.toggled.connect(self._sync_state)
+        self.setLayout(form)
+
+    def _sync_state(self) -> None:
+        continuous = self.continuous_session_checkbox.isChecked()
+        self.continuous_idle_spin.setEnabled(continuous)
+        self.continuous_max_frames_spin.setEnabled(continuous)
+        self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
+
+    def populate(self, settings: Settings) -> None:
+        self.continuous_session_checkbox.setChecked(settings.continuous_astro_session)
+        self.continuous_idle_spin.setValue(
+            int(round(settings.continuous_astro_idle_timeout_seconds))
+        )
+        self.continuous_max_frames_spin.setValue(int(settings.continuous_astro_max_frames))
+        self.delete_session_checkbox.setChecked(settings.delete_astro_session_after_download)
+        self.delete_timeout_spin.setValue(
+            int(round(settings.delete_astro_session_timeout_seconds))
+        )
+        self.ready_timeout_spin.setValue(
+            int(round(settings.astro_capture_ready_timeout_seconds))
+        )
+        self._sync_state()
+
+    def apply(self, settings: Settings) -> Settings:
+        return settings.model_copy(
+            update={
+                "continuous_astro_session": self.continuous_session_checkbox.isChecked(),
+                "continuous_astro_idle_timeout_seconds": float(
+                    self.continuous_idle_spin.value()
+                ),
+                "continuous_astro_max_frames": self.continuous_max_frames_spin.value(),
+                "delete_astro_session_after_download": (
+                    self.delete_session_checkbox.isChecked()
+                ),
+                "delete_astro_session_timeout_seconds": float(
+                    self.delete_timeout_spin.value()
+                ),
+                "astro_capture_ready_timeout_seconds": float(
+                    self.ready_timeout_spin.value()
+                ),
+            }
+        )
+
+
 DEFAULT_PROFILE_NAME = "dwarf-alpaca.yaml"
 
 # Settings written by File > Save settings profile: everything editable on the
@@ -763,6 +791,7 @@ class MainWindow(QMainWindow):
         logging.getLogger().setLevel(logging.INFO)
 
         self.settings_widget = SettingsOverridesWidget()
+        self.capture_widget = CaptureOptionsWidget()
         self.provisioning_widget = ProvisioningWidget()
         self.server_widget = ServerControlWidget()
         self._connectivity_summary: str = ""
@@ -794,6 +823,11 @@ class MainWindow(QMainWindow):
         settings_scroll.setFrameShape(QFrame.NoFrame)
         settings_scroll.setWidget(self.settings_widget)
         tabs.addTab(settings_scroll, "Settings")
+        capture_page = QWidget()
+        capture_layout = QVBoxLayout(capture_page)
+        capture_layout.addWidget(self.capture_widget)
+        capture_layout.addStretch(1)
+        tabs.addTab(capture_page, "Capture")
         upper_layout.addWidget(tabs, 2)
         self.help_panel = QLabel()
         self.help_panel.setWordWrap(True)
@@ -830,9 +864,22 @@ class MainWindow(QMainWindow):
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
                 " and enter or fetch observer coordinates before optional post-start calibration."
-                " Capture options control the continuous DWARF session and deletion of"
-                " sessions after download. Use File &gt; Save settings profile to store"
-                f" everything in {DEFAULT_PROFILE_NAME}, which is loaded at start-up.",
+                " Use File &gt; Save settings profile to store the Settings and Capture tabs"
+                f" in {DEFAULT_PROFILE_NAME}, which is loaded at start-up.",
+            ),
+            3: (
+                "Capture",
+                "<b>Capture tab</b><br/>Options for NINA sequences, tested with DWARF 3 only."
+                "<br/><br/><b>Continuous DWARF session</b>: one DWARF session per sequence"
+                " instead of one per frame (closing a session takes about a minute). It ends"
+                " when exposure, gain, filter or binning change, on abort, slew, focuser"
+                " move, disconnect, or after the idle timeout."
+                "<br/><br/><b>Delete DWARF session after download</b>: removes the session"
+                " folder (raw FITS, stacked image, previews) from the telescope once the"
+                " DWARF has closed it. Keep the app open for a minute or two after the"
+                " sequence so the deletion can finish."
+                "<br/><br/><b>Wait for DWARF ready</b>: how long a new capture waits for"
+                " the previous session to close.",
             ),
         }
         self._refresh_state()
@@ -903,7 +950,9 @@ class MainWindow(QMainWindow):
 
     def _write_settings_profile(self, path: Path) -> None:
         try:
-            settings = self.settings_widget.apply(self._current_settings())
+            settings = self.capture_widget.apply(
+                self.settings_widget.apply(self._current_settings())
+            )
             write_profile(path, settings)
         except Exception as exc:
             QMessageBox.critical(self, "Settings", f"Failed to save settings profile: {exc}")
@@ -931,6 +980,7 @@ class MainWindow(QMainWindow):
         self._settings = settings
         self._state_store = create_state_store(settings.state_directory)
         self.settings_widget.populate(settings)
+        self.capture_widget.populate(settings)
         self.settings_widget.set_profile_path(
             path or default_profile_path(), exists=path is not None
         )
@@ -1367,7 +1417,7 @@ class MainWindow(QMainWindow):
 
     def _build_settings_for_server(self) -> Settings:
         base = self._current_settings()
-        override = self.settings_widget.apply(base)
+        override = self.capture_widget.apply(self.settings_widget.apply(base))
         entered_ip = self.settings_widget.dwarf_ip_edit.text().strip()
         ip_is_manual_override = bool(entered_ip and entered_ip != base.dwarf_ap_ip)
         store = self._state_store

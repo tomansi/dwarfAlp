@@ -11,11 +11,13 @@ $env:DWARF_ALPACA_FORCE_SIMULATION = "false"
 uv run dwarf-alpaca serve
 ```
 
-In the desktop app, every option on the **Settings** tab (including the capture
-options for the continuous DWARF session and session deletion) can be stored with
+In the desktop app, every option on the **Settings** and **Capture** tabs can be
+stored with
 **File → Save settings profile** (`Ctrl+S`). It writes `dwarf-alpaca.yaml` in the
 folder the app is started from (next to the executable for packaged builds), and
-that file is loaded automatically at start-up. **File → Save settings profile as…**
+that file is loaded automatically at start-up. The **Capture** tab holds the
+continuous DWARF session and session-deletion options; they have been tested with
+a DWARF 3 only, not with DWARF 2 or DWARF mini. **File → Save settings profile as…**
 writes to another file, which can be opened later with **Load settings profile…**.
 
 Precedence, lowest to highest: defaults, `.env` and environment variables, the YAML

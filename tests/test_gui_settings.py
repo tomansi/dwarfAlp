@@ -301,18 +301,18 @@ def test_server_widget_displays_calibration_outcome(qapp):
 def test_save_profile_and_load_it_at_startup(qapp, tmp_path):
     window = MainWindow()
     window.settings_widget.dwarf_ip_edit.setText("192.168.7.81")
-    window.settings_widget.continuous_session_checkbox.setChecked(True)
-    window.settings_widget.delete_session_checkbox.setChecked(True)
+    window.capture_widget.continuous_session_checkbox.setChecked(True)
+    window.capture_widget.delete_session_checkbox.setChecked(True)
     window._save_settings_profile()
     profile = tmp_path / "dwarf-alpaca.yaml"
     assert profile.exists()
     window.close()
 
     reopened = MainWindow()
-    widget = reopened.settings_widget
-    assert widget.dwarf_ip_edit.text() == "192.168.7.81"
-    assert widget.continuous_session_checkbox.isChecked()
-    assert widget.delete_session_checkbox.isChecked()
+    assert reopened.settings_widget.dwarf_ip_edit.text() == "192.168.7.81"
+    assert reopened.capture_widget.continuous_session_checkbox.isChecked()
+    assert reopened.capture_widget.delete_session_checkbox.isChecked()
+    assert reopened._tabs.tabText(3) == "Capture"
     assert reopened._settings_path == profile
     reopened.close()
 
