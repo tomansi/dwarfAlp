@@ -3513,8 +3513,125 @@ class DwarfSession:
             if not reuse_continuous and self._continuous is not None:
                 await self._end_continuous_session(reason="settings_changed_or_not_running")
             await self._ensure_ws()
-            if not reuse_continuous:
-                await self._wait_for_astro_capture_ready()
+            if not reuse_continuous and self._astro_capture_needs_ready_wait():
+                # The DWARF is still closing the previous session (~70 s on a
+                # DWARF 3 in DSO mode). Answer StartExposure at once and start in
+                # the background: blocking here made NINA time out, resend
+                # StartExposure several times, get a 409 and abort the exposure.
+                self._defer_start_until_ready(
+                    duration,
+                    light,
+                    continue_without_darks=continue_without_darks,
+                    mini_profile=mini_profile,
+                    continuous_wanted=continuous_wanted,
+                )
+                return
+        await self._camera_start_exposure_ready(
+            duration,
+            light,
+            continue_without_darks=continue_without_darks,
+            mini_profile=mini_profile,
+            continuous_wanted=continuous_wanted,
+            reuse_continuous=reuse_continuous,
+        )
+
+    def _astro_capture_needs_ready_wait(self) -> bool:
+        if not self._uses_v3_protocol():
+            return False
+        current = self._astro_capture_operation_state
+        return current is not None and current not in {
+            _OperationState.IDLE,
+            _OperationState.STOPPED,
+        }
+
+    def _defer_start_until_ready(
+        self,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None,
+        mini_profile: bool,
+        continuous_wanted: bool,
+    ) -> None:
+        state = self.camera_state
+        pending_id = uuid.uuid4().hex
+        state.capture_id = pending_id
+        state.capture_phase = CapturePhase.CONFIGURING
+        state.capture_start_monotonic = time.monotonic()
+        state.duration = duration
+        state.light = light
+        state.start_time = time.time()
+        state.last_end_time = None
+        state.last_error = None
+        state.image = None
+        logger.info(
+            "dwarf.camera.start_deferred_until_ready",
+            capture_id=pending_id,
+            device_state=self._astro_capture_operation_state,
+        )
+        state.capture_task = asyncio.create_task(
+            self._deferred_start(
+                pending_id,
+                duration,
+                light,
+                continue_without_darks=continue_without_darks,
+                mini_profile=mini_profile,
+                continuous_wanted=continuous_wanted,
+            )
+        )
+
+    async def _deferred_start(
+        self,
+        pending_id: str,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None,
+        mini_profile: bool,
+        continuous_wanted: bool,
+    ) -> None:
+        state = self.camera_state
+        try:
+            await self._wait_for_astro_capture_ready()
+            if state.capture_id != pending_id:
+                return  # aborted while waiting
+            await self._camera_start_exposure_ready(
+                duration,
+                light,
+                continue_without_darks=continue_without_darks,
+                mini_profile=mini_profile,
+                continuous_wanted=continuous_wanted,
+                reuse_continuous=False,
+            )
+            logger.info("dwarf.camera.deferred_start_dispatched", pending_id=pending_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(
+                "dwarf.camera.deferred_start_failed",
+                pending_id=pending_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            if state.capture_id is not None and state.capture_phase != CapturePhase.READY:
+                state.capture_phase = CapturePhase.FAILED
+                state.last_error = f"deferred_start_failed: {exc}"
+                state.start_time = None
+                state.last_end_time = time.time()
+
+    async def _camera_start_exposure_ready(
+        self,
+        duration: float,
+        light: bool,
+        *,
+        continue_without_darks: bool | None,
+        mini_profile: bool,
+        continuous_wanted: bool,
+        reuse_continuous: bool,
+    ) -> None:
+        """Start an exposure once the DWARF can accept a new capture."""
+
+        state = self.camera_state
         state.capture_id = uuid.uuid4().hex
         capture_id = state.capture_id
         state.capture_phase = CapturePhase.CONFIGURING

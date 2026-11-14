@@ -118,3 +118,61 @@ async def test_end_session_stops_device_and_queues_folder_cleanup() -> None:
     assert cleanups == [FOLDER.rsplit("/", 1)[-1]]
     assert session._last_continuous_folder == FOLDER
     await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_deferred_start_runs_after_device_is_ready() -> None:
+    session = _session()
+    calls: list[str] = []
+
+    async def fake_wait(*, timeout=None) -> None:
+        calls.append("wait")
+
+    async def fake_start(duration, light, **kwargs) -> None:
+        calls.append("start")
+        assert kwargs["reuse_continuous"] is False
+
+    session._wait_for_astro_capture_ready = fake_wait  # type: ignore[method-assign]
+    session._camera_start_exposure_ready = fake_start  # type: ignore[method-assign]
+    session._defer_start_until_ready(
+        10.0, True, continue_without_darks=None, mini_profile=False, continuous_wanted=False
+    )
+    assert session.camera_state.capture_phase.value == "configuring"
+    await session.camera_state.capture_task
+    assert calls == ["wait", "start"]
+
+
+@pytest.mark.asyncio
+async def test_deferred_start_failure_marks_capture_failed() -> None:
+    session = _session()
+
+    async def fake_wait(*, timeout=None) -> None:
+        raise RuntimeError("still busy")
+
+    session._wait_for_astro_capture_ready = fake_wait  # type: ignore[method-assign]
+    session._defer_start_until_ready(
+        10.0, True, continue_without_darks=None, mini_profile=False, continuous_wanted=False
+    )
+    await session.camera_state.capture_task
+    assert session.camera_state.capture_phase.value == "failed"
+    assert "still busy" in (session.camera_state.last_error or "")
+
+
+@pytest.mark.asyncio
+async def test_deferred_start_skipped_after_abort() -> None:
+    session = _session()
+    started: list[bool] = []
+
+    async def fake_wait(*, timeout=None) -> None:
+        session.camera_state.capture_id = None  # abort happened meanwhile
+
+    async def fake_start(duration, light, **kwargs) -> None:
+        started.append(True)
+
+    session._wait_for_astro_capture_ready = fake_wait  # type: ignore[method-assign]
+    session._camera_start_exposure_ready = fake_start  # type: ignore[method-assign]
+    session._defer_start_until_ready(
+        10.0, True, continue_without_darks=None, mini_profile=False, continuous_wanted=False
+    )
+    await session.camera_state.capture_task
+    assert started == []
