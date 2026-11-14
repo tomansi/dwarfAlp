@@ -9,8 +9,9 @@ from typing import Optional
 
 import httpx
 import structlog
+import yaml
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSpinBox,
     QSplitter,
@@ -206,6 +208,44 @@ class SettingsOverridesWidget(QGroupBox):
         for tz in TIMEZONE_CHOICES:
             self.timezone_combo.addItem(tz, tz)
 
+        # Capture options (DWARF 3 + NINA)
+        self.continuous_session_checkbox = QCheckBox(
+            "Continuous DWARF session for NINA sequences"
+        )
+        self.continuous_session_checkbox.setToolTip(
+            "Keep one DWARF session running while exposure, gain, filter and binning "
+            "stay the same; each NINA exposure gets the next FITS."
+        )
+        self.continuous_idle_spin = QSpinBox()
+        self.continuous_idle_spin.setRange(10, 3600)
+        self.continuous_idle_spin.setSuffix(" s")
+        self.continuous_idle_spin.setToolTip(
+            "Stop the continuous session after this long without a new exposure."
+        )
+        self.continuous_max_frames_spin = QSpinBox()
+        self.continuous_max_frames_spin.setRange(2, 9999)
+        self.continuous_max_frames_spin.setToolTip(
+            "Frame count requested from the DWARF for a continuous session."
+        )
+        self.delete_session_checkbox = QCheckBox(
+            "Delete DWARF session after download (removes files from the telescope)"
+        )
+        self.delete_timeout_spin = QSpinBox()
+        self.delete_timeout_spin.setRange(30, 1800)
+        self.delete_timeout_spin.setSuffix(" s")
+        self.delete_timeout_spin.setToolTip(
+            "How long to wait for the DWARF to close the session before skipping deletion."
+        )
+        self.ready_timeout_spin = QSpinBox()
+        self.ready_timeout_spin.setRange(30, 1800)
+        self.ready_timeout_spin.setSuffix(" s")
+        self.ready_timeout_spin.setToolTip(
+            "How long a new capture waits for the DWARF to close the previous session."
+        )
+        self.profile_path_label = QLabel()
+        self.profile_path_label.setWordWrap(True)
+        self.profile_path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
         self.device_model_combo.currentIndexChanged.connect(self._sync_client_id_for_selected_model)
         self.device_model_combo.currentIndexChanged.connect(self._sync_calibration_availability)
 
@@ -224,7 +264,32 @@ class SettingsOverridesWidget(QGroupBox):
         form.addRow("Preflight timeout", self.preflight_timeout_spin)
         form.addRow("Preflight interval", self.preflight_interval_spin)
         form.addRow("Timezone", self.timezone_combo)
+        capture_title = QLabel("<b>Capture (DWARF 3 + NINA)</b>")
+        form.addRow(capture_title)
+        form.addRow(self.continuous_session_checkbox)
+        form.addRow("Continuous idle timeout", self.continuous_idle_spin)
+        form.addRow("Continuous max frames", self.continuous_max_frames_spin)
+        form.addRow(self.delete_session_checkbox)
+        form.addRow("Deletion wait timeout", self.delete_timeout_spin)
+        form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
+        form.addRow("Settings profile", self.profile_path_label)
+        self.continuous_session_checkbox.toggled.connect(self._sync_capture_option_state)
+        self.delete_session_checkbox.toggled.connect(self._sync_capture_option_state)
         self.setLayout(form)
+
+    def _sync_capture_option_state(self) -> None:
+        continuous = self.continuous_session_checkbox.isChecked()
+        self.continuous_idle_spin.setEnabled(continuous)
+        self.continuous_max_frames_spin.setEnabled(continuous)
+        self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
+
+    def set_profile_path(self, path: Optional[Path], *, exists: bool) -> None:
+        if path is None:
+            self.profile_path_label.setText("None (environment / .env only)")
+        elif exists:
+            self.profile_path_label.setText(str(path))
+        else:
+            self.profile_path_label.setText(f"{path} (not saved yet)")
 
     def populate(self, settings: Settings) -> None:
         self.http_host_edit.setText(settings.http_host)
@@ -247,6 +312,19 @@ class SettingsOverridesWidget(QGroupBox):
         self.preflight_timeout_spin.setValue(180)
         self.preflight_interval_spin.setValue(5)
         self.set_timezone_name(settings.timezone_name)
+        self.continuous_session_checkbox.setChecked(settings.continuous_astro_session)
+        self.continuous_idle_spin.setValue(
+            int(round(settings.continuous_astro_idle_timeout_seconds))
+        )
+        self.continuous_max_frames_spin.setValue(int(settings.continuous_astro_max_frames))
+        self.delete_session_checkbox.setChecked(settings.delete_astro_session_after_download)
+        self.delete_timeout_spin.setValue(
+            int(round(settings.delete_astro_session_timeout_seconds))
+        )
+        self.ready_timeout_spin.setValue(
+            int(round(settings.astro_capture_ready_timeout_seconds))
+        )
+        self._sync_capture_option_state()
 
     def apply(self, settings: Settings) -> Settings:
         data = settings.model_dump()
@@ -282,6 +360,20 @@ class SettingsOverridesWidget(QGroupBox):
                     self.site_longitude_edit.text(), "Longitude", -180.0, 180.0
                 ),
                 "timezone_name": timezone_name,
+                "continuous_astro_session": self.continuous_session_checkbox.isChecked(),
+                "continuous_astro_idle_timeout_seconds": float(
+                    self.continuous_idle_spin.value()
+                ),
+                "continuous_astro_max_frames": self.continuous_max_frames_spin.value(),
+                "delete_astro_session_after_download": (
+                    self.delete_session_checkbox.isChecked()
+                ),
+                "delete_astro_session_timeout_seconds": float(
+                    self.delete_timeout_spin.value()
+                ),
+                "astro_capture_ready_timeout_seconds": float(
+                    self.ready_timeout_spin.value()
+                ),
             }
         )
         return settings.model_validate(data)
@@ -582,6 +674,67 @@ def _resolve_state_directory(path: Path) -> Path:
     return (base / path).resolve()
 
 
+DEFAULT_PROFILE_NAME = "dwarf-alpaca.yaml"
+
+# Settings written by File > Save settings profile: everything editable on the
+# Settings tab. Keys present in a loaded profile take precedence over values
+# remembered from provisioning (IP, model, location, timezone).
+PROFILE_KEYS: tuple[str, ...] = (
+    "http_host",
+    "http_port",
+    "dwarf_ap_ip",
+    "dwarf_device_model",
+    "dwarf_ws_client_id",
+    "force_simulation",
+    "calibrate_after_server_start",
+    "site_latitude",
+    "site_longitude",
+    "timezone_name",
+    "continuous_astro_session",
+    "continuous_astro_idle_timeout_seconds",
+    "continuous_astro_max_frames",
+    "delete_astro_session_after_download",
+    "delete_astro_session_timeout_seconds",
+    "astro_capture_ready_timeout_seconds",
+)
+
+
+def default_profile_path() -> Path:
+    """Profile loaded at start-up: next to the executable, or the working folder."""
+
+    if getattr(sys, "frozen", False):
+        base = Path(sys.executable).resolve().parent
+    else:
+        base = Path.cwd()
+    return base / DEFAULT_PROFILE_NAME
+
+
+def profile_data(settings: Settings) -> dict:
+    data = settings.model_dump(mode="json")
+    return {key: data.get(key) for key in PROFILE_KEYS}
+
+
+def write_profile(path: Path, settings: Settings) -> None:
+    header = (
+        "# dwarfAlp settings profile\n"
+        "# Saved from File > Save settings profile. Loaded automatically at start-up\n"
+        f"# when named {DEFAULT_PROFILE_NAME} next to the app. Values here override .env.\n"
+    )
+    body = yaml.safe_dump(profile_data(settings), sort_keys=False, allow_unicode=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(header + body, encoding="utf-8")
+    tmp.replace(path)
+
+
+def read_profile_keys(path: Path) -> set[str]:
+    with path.open("r", encoding="utf-8") as stream:
+        data = yaml.safe_load(stream) or {}
+    if not isinstance(data, dict):
+        raise ValueError("Settings profile must be a YAML mapping")
+    return {str(key) for key in data}
+
+
 class MainWindow(QMainWindow):
     def __init__(self, *, app_icon: Optional[QIcon] = None) -> None:
         super().__init__()
@@ -591,6 +744,7 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(app_icon)
 
         self._settings_path: Optional[Path] = None
+        self._profile_keys: set[str] = set()
         self._settings: Optional[Settings] = None
         self._state_store: Optional[StateStore] = None
         self._workers: set[AsyncWorker] = set()
@@ -635,7 +789,11 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.addTab(self.server_widget, "Server")
         tabs.addTab(self.provisioning_widget, "Provisioning")
-        tabs.addTab(self.settings_widget, "Settings")
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setFrameShape(QFrame.NoFrame)
+        settings_scroll.setWidget(self.settings_widget)
+        tabs.addTab(settings_scroll, "Settings")
         upper_layout.addWidget(tabs, 2)
         self.help_panel = QLabel()
         self.help_panel.setWordWrap(True)
@@ -653,7 +811,8 @@ class MainWindow(QMainWindow):
 
         self._create_menu()
         self._tabs = tabs
-        self._load_settings(None)
+        startup_profile = default_profile_path()
+        self._load_settings(startup_profile if startup_profile.exists() else None)
         self._help_messages = {
             0: (
                 "Server",
@@ -670,7 +829,10 @@ class MainWindow(QMainWindow):
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
-                " and enter or fetch observer coordinates before optional post-start calibration.",
+                " and enter or fetch observer coordinates before optional post-start calibration."
+                " Capture options control the continuous DWARF session and deletion of"
+                " sessions after download. Use File &gt; Save settings profile to store"
+                f" everything in {DEFAULT_PROFILE_NAME}, which is loaded at start-up.",
             ),
         }
         self._refresh_state()
@@ -684,6 +846,15 @@ class MainWindow(QMainWindow):
         load_action = QAction("Load settings profile…", self)
         load_action.triggered.connect(self._choose_settings_file)
         menu.addAction(load_action)
+
+        save_action = QAction("Save settings profile", self)
+        save_action.setShortcut(QKeySequence.Save)
+        save_action.triggered.connect(self._save_settings_profile)
+        menu.addAction(save_action)
+
+        save_as_action = QAction("Save settings profile as…", self)
+        save_as_action.triggered.connect(self._save_settings_profile_as)
+        menu.addAction(save_as_action)
 
         reload_action = QAction("Reload", self)
         reload_action.triggered.connect(lambda: self._load_settings(self._settings_path))
@@ -716,12 +887,42 @@ class MainWindow(QMainWindow):
         if path:
             self._load_settings(Path(path))
 
+    def _save_settings_profile(self) -> None:
+        self._write_settings_profile(self._settings_path or default_profile_path())
+
+    def _save_settings_profile_as(self) -> None:
+        start = self._settings_path or default_profile_path()
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save settings profile",
+            str(start),
+            "YAML files (*.yaml *.yml)",
+        )
+        if path:
+            self._write_settings_profile(Path(path))
+
+    def _write_settings_profile(self, path: Path) -> None:
+        try:
+            settings = self.settings_widget.apply(self._current_settings())
+            write_profile(path, settings)
+        except Exception as exc:
+            QMessageBox.critical(self, "Settings", f"Failed to save settings profile: {exc}")
+            return
+        self._settings = settings
+        self._settings_path = path
+        self._profile_keys = set(PROFILE_KEYS)
+        self.settings_widget.set_profile_path(path, exists=True)
+        self.statusBar().showMessage(f"Saved settings profile to {path}", 5000)
+        logging.getLogger(__name__).info("gui.settings_profile_saved path=%s", path)
+
     def _load_settings(self, path: Optional[Path]) -> None:
         try:
             settings = load_settings(str(path) if path else None)
+            profile_keys = read_profile_keys(path) if path else set()
         except Exception as exc:
             QMessageBox.critical(self, "Settings", f"Failed to load settings: {exc}")
             return
+        self._profile_keys = profile_keys
         resolved_state_dir = _resolve_state_directory(settings.state_directory)
         if resolved_state_dir != settings.state_directory:
             settings = settings.model_copy(update={"state_directory": resolved_state_dir})
@@ -730,6 +931,9 @@ class MainWindow(QMainWindow):
         self._settings = settings
         self._state_store = create_state_store(settings.state_directory)
         self.settings_widget.populate(settings)
+        self.settings_widget.set_profile_path(
+            path or default_profile_path(), exists=path is not None
+        )
         self.provisioning_widget.set_ble_password(settings.ble_password or "DWARF_12345678")
         self.statusBar().showMessage(
             f"Loaded settings from {path}" if path else "Loaded default environment settings",
@@ -764,12 +968,18 @@ class MainWindow(QMainWindow):
         current_settings = self._current_settings()
         updated_settings = current_settings
 
+        profile = self._profile_keys
         tz_name = state.timezone_name
-        if tz_name != updated_settings.timezone_name:
-            updated_settings = updated_settings.with_timezone_name(tz_name)
-        self.settings_widget.set_timezone_name(tz_name)
+        if "timezone_name" not in profile:
+            if tz_name != updated_settings.timezone_name:
+                updated_settings = updated_settings.with_timezone_name(tz_name)
+            self.settings_widget.set_timezone_name(tz_name)
 
-        if state.site_latitude is not None and state.site_longitude is not None:
+        if (
+            state.site_latitude is not None
+            and state.site_longitude is not None
+            and not {"site_latitude", "site_longitude"} & profile
+        ):
             if (
                 updated_settings.site_latitude != state.site_latitude
                 or updated_settings.site_longitude != state.site_longitude
@@ -784,7 +994,7 @@ class MainWindow(QMainWindow):
                 state.site_latitude, state.site_longitude
             )
 
-        if state.device_model:
+        if state.device_model and "dwarf_device_model" not in profile:
             model = normalize_dwarf_device_model(state.device_model)
             client_id = _MODEL_DEFAULT_CLIENT_ID[model]
             if (
@@ -799,7 +1009,7 @@ class MainWindow(QMainWindow):
                 )
             self.settings_widget.set_device_model(model)
 
-        if state.sta_ip:
+        if state.sta_ip and "dwarf_ap_ip" not in profile:
             if updated_settings.dwarf_ap_ip != state.sta_ip:
                 updated_settings = updated_settings.model_copy(
                     update={"dwarf_ap_ip": state.sta_ip, "network_mode": "sta"}
@@ -943,6 +1153,8 @@ class MainWindow(QMainWindow):
 
     def _on_prestart_provision_success(self, _: object) -> None:
         self.provisioning_widget.show_status("Provisioning succeeded")
+        # A freshly provisioned STA address replaces the IP from the profile.
+        self._profile_keys.discard("dwarf_ap_ip")
         self._refresh_state()
         self._continue_start_after_provision()
 
@@ -1062,6 +1274,8 @@ class MainWindow(QMainWindow):
 
     def _on_provision_success(self) -> None:
         self.provisioning_widget.show_status("Provisioning succeeded")
+        # A freshly provisioned STA address replaces the IP from the profile.
+        self._profile_keys.discard("dwarf_ap_ip")
         self._refresh_state()
 
     def _on_provision_error(self, exc: Exception) -> None:
@@ -1170,7 +1384,11 @@ class MainWindow(QMainWindow):
             if detected_mode in ("", "unknown"):
                 detected_mode = "sta" if state.sta_ip else "ap"
             override.network_mode = detected_mode
-            if state.sta_ip and not ip_is_manual_override:
+            if (
+                state.sta_ip
+                and not ip_is_manual_override
+                and "dwarf_ap_ip" not in self._profile_keys
+            ):
                 override.dwarf_ap_ip = state.sta_ip
                 self.settings_widget.dwarf_ip_edit.setText(state.sta_ip)
             needs_save = False

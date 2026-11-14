@@ -11,6 +11,15 @@ from dwarf_alpaca.gui.app import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolated_settings_profile(monkeypatch, tmp_path):
+    # Never pick up a real dwarf-alpaca.yaml from the working folder in tests.
+    monkeypatch.setattr(
+        "dwarf_alpaca.gui.app.default_profile_path",
+        lambda: tmp_path / "dwarf-alpaca.yaml",
+    )
+
+
 @pytest.fixture(scope="module")
 def qapp():
     app = QApplication.instance()
@@ -287,3 +296,40 @@ def test_server_widget_displays_calibration_outcome(qapp):
         assert "183.25" in text
     finally:
         window.close()
+
+
+def test_save_profile_and_load_it_at_startup(qapp, tmp_path):
+    window = MainWindow()
+    window.settings_widget.dwarf_ip_edit.setText("192.168.7.81")
+    window.settings_widget.continuous_session_checkbox.setChecked(True)
+    window.settings_widget.delete_session_checkbox.setChecked(True)
+    window._save_settings_profile()
+    profile = tmp_path / "dwarf-alpaca.yaml"
+    assert profile.exists()
+    window.close()
+
+    reopened = MainWindow()
+    widget = reopened.settings_widget
+    assert widget.dwarf_ip_edit.text() == "192.168.7.81"
+    assert widget.continuous_session_checkbox.isChecked()
+    assert widget.delete_session_checkbox.isChecked()
+    assert reopened._settings_path == profile
+    reopened.close()
+
+
+def test_profile_ip_wins_over_remembered_sta_ip(qapp, tmp_path):
+    window = MainWindow()
+    window.settings_widget.dwarf_ip_edit.setText("192.168.7.81")
+    window._save_settings_profile()
+    window.close()
+
+    reopened = MainWindow()
+    try:
+        store = StateStore(tmp_path / "connectivity.json")
+        store.save(ConnectivityState(sta_ip="10.0.0.99", mode="sta"))
+        reopened._state_store = store  # type: ignore[attr-defined]
+        reopened._refresh_state()
+        assert reopened.settings_widget.dwarf_ip_edit.text() == "192.168.7.81"
+        assert reopened._build_settings_for_server().dwarf_ap_ip == "192.168.7.81"
+    finally:
+        reopened.close()

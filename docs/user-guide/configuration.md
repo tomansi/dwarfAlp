@@ -11,6 +11,18 @@ $env:DWARF_ALPACA_FORCE_SIMULATION = "false"
 uv run dwarf-alpaca serve
 ```
 
+In the desktop app, every option on the **Settings** tab (including the capture
+options for the continuous DWARF session and session deletion) can be stored with
+**File → Save settings profile** (`Ctrl+S`). It writes `dwarf-alpaca.yaml` in the
+folder the app is started from (next to the executable for packaged builds), and
+that file is loaded automatically at start-up. **File → Save settings profile as…**
+writes to another file, which can be opened later with **Load settings profile…**.
+
+Precedence, lowest to highest: defaults, `.env` and environment variables, the YAML
+profile, then edits made on the Settings tab before starting the server. Values in a
+loaded profile (IP, model, location, timezone) also win over those remembered from
+BLE provisioning, until a new provisioning run replaces the IP.
+
 A YAML profile contains the lowercase field names:
 
 ```yaml
