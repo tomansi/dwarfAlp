@@ -154,3 +154,12 @@ def test_autofocus_not_started_is_a_warning() -> None:
         "The DWARF did not start autofocus (waited 20 s)",
         "Continuing without autofocus",
     ]
+
+
+def test_goto_busy_rejection_message() -> None:
+    translator = ActivityTranslator()
+    entries = translator.feed(
+        _js("dwarf.telescope.goto.one_click.rejected", code=-11501, target_name="M31"), 0.0
+    )
+    assert entries[0].kind == WARN
+    assert "busy" in entries[0].text

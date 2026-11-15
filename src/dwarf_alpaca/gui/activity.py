@@ -198,6 +198,8 @@ class ActivityTranslator:
             "dwarf.camera.astro_cleanup_failed": self._on_cleanup_failed,
             "dwarf.telescope.goto.one_click.starting": self._on_goto_start,
             "dwarf.telescope.goto.retrying": self._on_goto_retry,
+            "dwarf.telescope.goto.waiting_for_capture_stop": self._on_goto_waits_for_capture,
+            "dwarf.telescope.goto.one_click.rejected": self._on_goto_rejected,
             "dwarf.telescope.goto.wait_result": self._on_goto_result,
             "dwarf.telescope.goto.wait_timeout": self._on_goto_timeout,
             "dwarf.telescope.goto.timeout": self._on_goto_timeout,
@@ -499,6 +501,20 @@ class ActivityTranslator:
 
     def _on_goto_retry(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         return [ActivityEntry(t, WARN, f"GOTO retrying (DWARF code {f.get('code')})", group="goto_retry")]
+
+    def _on_goto_waits_for_capture(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [
+            ActivityEntry(
+                t, WAIT, "GOTO waits until the DWARF finishes closing the capture session"
+            )
+        ]
+
+    def _on_goto_rejected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        code = f.get("code")
+        if str(code) == "-11501":
+            text = "DWARF busy: stopping the previous target before retrying the GOTO"
+            return [ActivityEntry(t, WARN, text)]
+        return [ActivityEntry(t, WARN, f"DWARF rejected the GOTO (code {code})")]
 
     def _on_goto_result(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         if f.get("result") == "success":

@@ -316,6 +316,8 @@ _V3_ASTRO_MODE_ID = 2
 # captures 1920x1080 frames into DWARF_RAW_TELE_Sun_* folders, so deep-sky
 # captures must use mode 2 to get native-resolution FITS.
 _V3_DSO_SHOOTING_MODE = 2
+# How long to wait for an immediate rejection of a one-click GOTO (11013).
+_ONE_CLICK_EARLY_REJECT_SECONDS = 1.5
 _V3_ASTRO_CAPTURE_MODE_ID = 11
 _V3_PARAM_MODE_SHIFT = 56
 _V3_PARAM_MODE_VALUE_MASK = (1 << _V3_PARAM_MODE_SHIFT) - 1
@@ -2597,6 +2599,14 @@ class DwarfSession:
         if self._continuous is not None:
             await self._end_continuous_session(reason="telescope_slew")
         await self._ensure_ws()
+        if self._astro_capture_needs_ready_wait():
+            # The DWARF answers a GOTO with "function busy" while it is still
+            # closing the previous capture session (this takes ~30-70 s).
+            logger.info(
+                "dwarf.telescope.goto.waiting_for_capture_stop",
+                state=self._astro_capture_operation_state,
+            )
+            await self._wait_for_astro_capture_ready()
         await self._halt_manual_motion()
         use_one_click_goto = (
             self.settings.auto_calibrate_on_slew and not self._has_recent_calibration()
@@ -2654,8 +2664,13 @@ class DwarfSession:
                 code=pending_error.code,
                 one_click=use_one_click_goto,
             )
-            await self.telescope_abort_slew()
-            await asyncio.sleep(0.2)
+            # Stop whatever the DWARF is still doing (typically tracking the
+            # previous one-click GOTO target) before trying again.
+            with contextlib.suppress(DwarfCommandError, asyncio.TimeoutError):
+                await self.telescope_abort_slew()
+            await asyncio.sleep(
+                2.0 if pending_error.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY else 0.2
+            )
             await self._halt_manual_motion()
             if use_one_click_goto:
                 await self._start_one_click_goto_command(
@@ -3288,6 +3303,37 @@ class DwarfSession:
             }:
                 self._one_click_goto_active = False
             raise
+        # The DWARF rejects a one-click GOTO it cannot run (for example
+        # "function busy") within milliseconds. Surface that to the caller so
+        # the normal retry path runs, instead of reporting a started slew.
+        early_response = None
+        try:
+            early_response = await asyncio.wait_for(
+                asyncio.shield(response_future), timeout=_ONE_CLICK_EARLY_REJECT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            early_response = None
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            early_response = None
+        if early_response is not None:
+            early_code = int(getattr(early_response, "code", protocol_pb2.OK))
+            if early_code != protocol_pb2.OK:
+                error = DwarfCommandError(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                    early_code,
+                )
+                self._calibration_status = "failed"
+                self._calibration_detail = str(error)
+                self._finish_calibration_trace(outcome="failed", error=error)
+                logger.warning(
+                    "dwarf.telescope.goto.one_click.rejected",
+                    code=early_code,
+                    target_name=target_name,
+                )
+                raise error
         self._record_goto(ra_hours, dec_degrees, kind=_GOTO_KIND_DSO)
         self._mark_goto_pending(kind=_GOTO_KIND_DSO, target_name=target_name)
         self._one_click_goto_active = True

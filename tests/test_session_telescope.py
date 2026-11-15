@@ -1101,3 +1101,28 @@ async def test_new_one_click_goto_releases_previous_pending_request() -> None:
     ]
     assert begun == [protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO]
     session._one_click_response_task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_immediate_one_click_rejection_is_raised_for_retry() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+
+    async def fake_begin_request(*_args, **_kwargs):
+        future = asyncio.get_running_loop().create_future()
+        future.set_result(
+            astro_pb2.ResOneClickGoto(
+                step=10, code=protocol_pb2.CODE_ASTRO_FUNCTION_BUSY, all_end=True
+            )
+        )
+        return future
+
+    session._begin_request = fake_begin_request  # type: ignore[method-assign]
+
+    with pytest.raises(DwarfCommandError) as excinfo:
+        await session._start_one_click_goto_command(0.712, 41.269, "M31")
+
+    assert excinfo.value.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY
+    assert session._goto_pending is False
+    # Still marked active so that an abort sends "stop one-click GOTO" first.
+    assert session._one_click_goto_active is True
