@@ -12,9 +12,10 @@ from typing import Optional
 import httpx
 import structlog
 import yaml
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette, QTextCursor
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -1028,6 +1029,11 @@ class MainWindow(QMainWindow):
         _configure_start_logging(self._settings)
         self._tabs.currentChanged.connect(self._update_help)
         self._update_help(self._tabs.currentIndex())
+        self._tabs.currentChanged.connect(self._fit_tabs_to_page)
+        self._fit_tabs_to_page(self._tabs.currentIndex())
+        # Numbers are typed; stepping arrows only moved them one unit at a time.
+        for spin in self.findChildren(QAbstractSpinBox):
+            spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
 
     # region menu and lifecycle
     def _create_menu(self) -> None:
@@ -1146,12 +1152,42 @@ class MainWindow(QMainWindow):
     def showEvent(self, event) -> None:  # type: ignore[override]
         super().showEvent(event)
         if not self._splitter_placed:
-            # Start with the divider as high as the tabs allow: the logs get
-            # all the remaining height.
             self._splitter_placed = True
-            upper = max(self._upper_area.minimumSizeHint().height(), 1)
-            total = max(self._splitter.height(), upper + 200)
-            self._splitter.setSizes([upper, total - upper])
+            QTimer.singleShot(0, self._place_splitter)
+
+    def _fit_tabs_to_page(self, index: int) -> None:
+        """Size the tab area to the open page only, so the logs get the rest.
+
+        A tab widget is as tall as its tallest page; ignoring the size of the
+        hidden pages removes the empty band below shorter pages.
+        """
+
+        for i in range(self._tabs.count()):
+            page = self._tabs.widget(i)
+            if i == index:
+                page.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+            else:
+                page.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+            page.updateGeometry()
+        if self._splitter_placed:
+            QTimer.singleShot(0, self._place_splitter)
+
+    def _place_splitter(self) -> None:
+        """Put the divider right below the open tab page."""
+
+        page = self._tabs.currentWidget()
+        if page is None:
+            return
+        layout = page.layout()
+        width = max(page.width(), 1)
+        if layout is not None and layout.hasHeightForWidth():
+            page_height = layout.totalHeightForWidth(width)
+        else:
+            page_height = page.sizeHint().height()
+        chrome = max(self._tabs.height() - page.height(), 0)
+        upper = max(page_height + chrome, self._upper_area.minimumSizeHint().height(), 1)
+        total = max(self._splitter.height(), upper + 200)
+        self._splitter.setSizes([upper, total - upper])
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.log_handler.emitter.message.disconnect(self.log_console.append_message)
@@ -1695,6 +1731,36 @@ def _apply_field_style(app: QApplication) -> None:
     if base.lightness() > 128:  # light theme: shade fields slightly
         palette.setColor(QPalette.Base, QColor("#eef3f8"))
         app.setPalette(palette)
+        app.setStyleSheet(BUTTON_STYLE)
+
+
+# Buttons stand out from the shaded value fields: blue-grey fill, darker
+# border, and clear hover, pressed and disabled states.
+BUTTON_STYLE = """
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f4f8fc, stop:1 #d5e2ef);
+    border: 1px solid #6f8fae;
+    border-radius: 3px;
+    padding: 4px 12px;
+    color: #10283f;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #eaf3fc, stop:1 #bcd4ec);
+    border-color: #2f6ea5;
+}
+QPushButton:pressed {
+    background: #a9c6e3;
+    border-color: #2f6ea5;
+}
+QPushButton:focus {
+    border-color: #2f6ea5;
+}
+QPushButton:disabled {
+    background: #f0f0f0;
+    border-color: #c4c4c4;
+    color: #9a9a9a;
+}
+"""
 
 
 def main() -> None:
