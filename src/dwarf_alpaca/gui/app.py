@@ -754,8 +754,9 @@ class CaptureOptionsWidget(QGroupBox):
         self.continuous_max_frames_spin.setToolTip(
             "Frame count requested from the DWARF for a continuous session."
         )
-        self.delete_session_checkbox = QCheckBox(
-            "Delete DWARF session after download (removes files from the telescope)"
+        self.delete_session_checkbox = QCheckBox("Delete DWARF session after download")
+        self.delete_session_checkbox.setToolTip(
+            "Removes the session folder (raw FITS, stacked image, previews) from the telescope."
         )
         self.delete_timeout_spin = QSpinBox()
         self.delete_timeout_spin.setRange(30, 1800)
@@ -773,11 +774,14 @@ class CaptureOptionsWidget(QGroupBox):
         for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
             spin.setFixedWidth(100)
         self.continuous_max_frames_spin.setFixedWidth(90)
-        form.addRow("Continuous idle timeout", self.continuous_idle_spin)
-        form.addRow("Continuous max frames", self.continuous_max_frames_spin)
-        form.addRow(self.delete_session_checkbox)
-        form.addRow("Deletion wait timeout", self.delete_timeout_spin)
+        form.addRow(
+            "Continuous idle timeout",
+            _inline_row(self.continuous_idle_spin, "Max frames", self.continuous_max_frames_spin),
+        )
         form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
+        form.addRow(
+            _inline_row(self.delete_session_checkbox, "Deletion wait", self.delete_timeout_spin)
+        )
         self.delete_session_checkbox.toggled.connect(self._sync_state)
         layout = QVBoxLayout()
         layout.addWidget(self.compatibility_label)
@@ -1042,8 +1046,6 @@ class MainWindow(QMainWindow):
         _configure_start_logging(self._settings)
         self._tabs.currentChanged.connect(self._update_help)
         self._update_help(self._tabs.currentIndex())
-        self._tabs.currentChanged.connect(self._fit_tabs_to_page)
-        self._fit_tabs_to_page(self._tabs.currentIndex())
         # Numbers are typed; stepping arrows only moved them one unit at a time.
         for spin in self.findChildren(QAbstractSpinBox):
             spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
@@ -1168,39 +1170,47 @@ class MainWindow(QMainWindow):
             self._splitter_placed = True
             QTimer.singleShot(0, self._place_splitter)
 
-    def _fit_tabs_to_page(self, index: int) -> None:
-        """Size the tab area to the open page only, so the logs get the rest.
+    def _place_splitter(self) -> None:
+        """Put the divider right below the tallest tab page.
 
-        A tab widget is as tall as its tallest page; ignoring the size of the
-        hidden pages removes the empty band below shorter pages.
+        One divider is shared by all tabs. Qt over-estimates the minimum
+        height of wrapped labels (it measures them at a narrow width), which
+        left an empty band under the Capture tab; each page is measured at
+        its real width instead.
         """
 
-        for i in range(self._tabs.count()):
-            page = self._tabs.widget(i)
-            if i == index:
-                page.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-            else:
-                page.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-            page.updateGeometry()
-        if self._splitter_placed:
-            QTimer.singleShot(0, self._place_splitter)
-
-    def _place_splitter(self) -> None:
-        """Put the divider right below the open tab page."""
-
-        page = self._tabs.currentWidget()
-        if page is None:
+        upper = self._measure_upper_area()
+        if upper is None:
             return
-        layout = page.layout()
-        width = max(page.width(), 1)
-        if layout is not None and layout.hasHeightForWidth():
-            page_height = layout.totalHeightForWidth(width)
-        else:
-            page_height = page.sizeHint().height()
-        chrome = max(self._tabs.height() - page.height(), 0)
-        upper = max(page_height + chrome, self._upper_area.minimumSizeHint().height(), 1)
         total = max(self._splitter.height(), upper + 200)
         self._splitter.setSizes([upper, total - upper])
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        if self._splitter_placed:
+            # A narrower window wraps the labels into more lines.
+            QTimer.singleShot(0, self._measure_upper_area)
+
+    def _measure_upper_area(self) -> int | None:
+        """Set each page's minimum height for its real width; return the tab area height."""
+
+        current = self._tabs.currentWidget()
+        if current is None:
+            return None
+        width = max(current.width(), 1)
+        needed = 0
+        for i in range(self._tabs.count()):
+            page = self._tabs.widget(i)
+            height = page.minimumSizeHint().height()
+            if page.hasHeightForWidth():
+                for_width = page.heightForWidth(width)
+                if for_width > 0:
+                    height = min(height, for_width)
+            # Overrides the over-estimate, so the divider can sit right there.
+            page.setMinimumHeight(height)
+            needed = max(needed, height)
+        chrome = max(self._tabs.height() - current.height(), 0)
+        return max(needed + chrome, 1)
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.log_handler.emitter.message.disconnect(self.log_console.append_message)
