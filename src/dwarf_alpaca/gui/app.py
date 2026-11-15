@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSpinBox,
     QSplitter,
@@ -204,6 +205,24 @@ class ActivityConsole(QTextEdit):
         cursor.removeSelectedText()
 
 
+def _inline_row(*items: QWidget | str) -> QWidget:
+    """Lay out several fields on one form row (strings become small labels)."""
+
+    row = QWidget()
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    for index, item in enumerate(items):
+        if isinstance(item, str):
+            label = QLabel(item)
+            if index:
+                label.setContentsMargins(12, 0, 0, 0)
+            layout.addWidget(label)
+        else:
+            layout.addWidget(item)
+    layout.addStretch(1)
+    return row
+
+
 class SettingsOverridesWidget(QGroupBox):
     location_fetch_requested = Signal()
 
@@ -224,11 +243,11 @@ class SettingsOverridesWidget(QGroupBox):
             display = f"{label} ({value})"
             self.ws_client_id_combo.addItem(display, value)
         self.ws_client_id_combo.setInsertPolicy(QComboBox.NoInsert)
-        self.force_sim_checkbox = QCheckBox("Force simulation mode")
-        self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
-        self.calibrate_after_start_checkbox = QCheckBox(
-            "Prepare calibration after server start"
-        )
+        self.force_sim_checkbox = QCheckBox("Force simulation")
+        self.force_sim_checkbox.setToolTip("Force simulation mode (no DWARF is used).")
+        self.skip_preflight_checkbox = QCheckBox("Skip preflight")
+        self.skip_preflight_checkbox.setToolTip("Skip connectivity preflight.")
+        self.calibrate_after_start_checkbox = QCheckBox("Prepare calibration after start")
         self.site_latitude_edit = QLineEdit()
         self.site_latitude_edit.setPlaceholderText("e.g. 48.1372")
         self.site_longitude_edit = QLineEdit()
@@ -262,20 +281,43 @@ class SettingsOverridesWidget(QGroupBox):
         self.device_model_combo.currentIndexChanged.connect(self._sync_client_id_for_selected_model)
         self.device_model_combo.currentIndexChanged.connect(self._sync_calibration_availability)
 
-        form.addRow("HTTP host", self.http_host_edit)
-        form.addRow("HTTP port", self.http_port_spin)
+        # Compact layout: related fields share a row so the log area can be taller.
+        self.http_host_edit.setMaximumWidth(180)
+        self.http_port_spin.setFixedWidth(90)
+        self.dwarf_ip_edit.setMaximumWidth(180)
+        self.site_latitude_edit.setFixedWidth(110)
+        self.site_longitude_edit.setFixedWidth(110)
+        self.preflight_timeout_spin.setFixedWidth(90)
+        self.preflight_interval_spin.setFixedWidth(80)
+
+        form.addRow("HTTP host", _inline_row(self.http_host_edit, "Port", self.http_port_spin))
         form.addRow("DWARF IP", self.dwarf_ip_edit)
         form.addRow("DWARF model", self.device_model_combo)
         form.addRow("WS client ID", self.ws_client_id_combo)
-        form.addRow(self.force_sim_checkbox)
-        form.addRow(self.skip_preflight_checkbox)
-        form.addRow(self.calibrate_after_start_checkbox)
-        form.addRow("Site latitude", self.site_latitude_edit)
-        form.addRow("Site longitude", self.site_longitude_edit)
-        form.addRow(self.fetch_location_button)
+        form.addRow(
+            _inline_row(
+                self.force_sim_checkbox,
+                self.skip_preflight_checkbox,
+                self.calibrate_after_start_checkbox,
+            )
+        )
+        form.addRow(
+            "Site",
+            _inline_row(
+                self.fetch_location_button,
+                "Latitude",
+                self.site_latitude_edit,
+                "Longitude",
+                self.site_longitude_edit,
+            ),
+        )
         form.addRow("Location status", self.location_status_label)
-        form.addRow("Preflight timeout", self.preflight_timeout_spin)
-        form.addRow("Preflight interval", self.preflight_interval_spin)
+        form.addRow(
+            "Preflight",
+            _inline_row(
+                "Timeout", self.preflight_timeout_spin, "Interval", self.preflight_interval_spin
+            ),
+        )
         form.addRow("Timezone", self.timezone_combo)
         self.setLayout(form)
 
@@ -892,8 +934,12 @@ class MainWindow(QMainWindow):
         self.help_panel.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.help_panel.setMargin(12)
         self.help_panel.setFrameStyle(QFrame.Panel | QFrame.Sunken)
-        self.help_panel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        upper_layout.addWidget(self.help_panel, 1)
+        help_scroll = QScrollArea()
+        help_scroll.setWidgetResizable(True)
+        help_scroll.setFrameShape(QFrame.NoFrame)
+        help_scroll.setWidget(self.help_panel)
+        upper_layout.addWidget(help_scroll, 1)
+        upper_layout.setContentsMargins(0, 0, 0, 0)
         splitter.addWidget(upper)
         log_panel = QWidget()
         log_layout = QVBoxLayout(log_panel)
@@ -905,8 +951,11 @@ class MainWindow(QMainWindow):
         log_layout.addWidget(self.log_tabs)
         self._refresh_activity_status()
         splitter.addWidget(log_panel)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        # The tabs only take the height they need; the logs get the rest.
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        upper_height = tabs.sizeHint().height()
+        splitter.setSizes([upper_height, max(320, 720 - upper_height)])
         content_layout.addWidget(splitter)
         self.setCentralWidget(content)
 
