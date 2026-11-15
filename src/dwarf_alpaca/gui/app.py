@@ -728,6 +728,11 @@ class CaptureOptionsWidget(QGroupBox):
             "filter and binning stay the same, and hands each FITS to NINA."
         )
         self.continuous_info_label.setWordWrap(True)
+        for label in (self.compatibility_label, self.continuous_info_label):
+            # Wrapped labels spanning a QFormLayout row get a too small height
+            # (the disclaimer was cut after two lines); a plain vertical layout
+            # sizes them correctly.
+            label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
         self.continuous_idle_spin = QSpinBox()
         self.continuous_idle_spin.setRange(10, 3600)
         self.continuous_idle_spin.setSuffix(" s")
@@ -761,8 +766,6 @@ class CaptureOptionsWidget(QGroupBox):
             "How long a new capture waits for the DWARF to close the previous session."
         )
 
-        form.addRow(self.compatibility_label)
-        form.addRow(self.continuous_info_label)
         for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
             spin.setFixedWidth(100)
         self.continuous_max_frames_spin.setFixedWidth(90)
@@ -773,7 +776,11 @@ class CaptureOptionsWidget(QGroupBox):
         form.addRow("Deletion wait timeout", self.delete_timeout_spin)
         form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
         self.delete_session_checkbox.toggled.connect(self._sync_state)
-        self.setLayout(form)
+        layout = QVBoxLayout()
+        layout.addWidget(self.compatibility_label)
+        layout.addWidget(self.continuous_info_label)
+        layout.addLayout(form)
+        self.setLayout(layout)
 
     def _sync_state(self) -> None:
         self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
@@ -1007,15 +1014,18 @@ class MainWindow(QMainWindow):
             ),
             3: (
                 "Capture",
-                "<b>Capture tab</b><br/>Options for NINA sequences. Tested only with"
-                " DWARF 3 (" + TESTED_ENVIRONMENT + "); DWARF 2 and DWARF mini are"
-                " untested."
-                "<br/><br/><b>Continuous DWARF session</b> (always on): the DWARF always"
+                "<b>Capture tab</b><br/>Options that make the DWARF work the way NINA"
+                " expects."
+                "<br/><br/><b>Continuous DWARF session</b>: the DWARF always"
                 " captures as a stacking session on the telescope; one session serves a"
                 " whole sequence instead of one per frame (closing a session takes about"
                 " a minute). It ends when exposure, gain, filter or binning change, on"
                 " abort, slew, tracking off, focuser move, disconnect, or after the idle"
                 " timeout."
+                "<br/><br/><b>Deliver every frame in order</b>: NINA receives every frame"
+                " of the session, oldest first, even when the Wi-Fi download is slower"
+                " than the exposures. Off: NINA always gets the newest frame and older"
+                " ones are skipped (they stay on the DWARF unless the session is deleted)."
                 "<br/><br/><b>Delete DWARF session after download</b>: removes the session"
                 " folder (raw FITS, stacked image, previews) from the telescope once the"
                 " DWARF has closed it. Keep the app open for a minute or two after the"
