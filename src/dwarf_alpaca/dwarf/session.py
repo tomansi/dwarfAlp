@@ -2894,6 +2894,10 @@ class DwarfSession:
         self._drop_goto_record()
 
     def _has_recent_goto(self) -> bool:
+        if self._last_goto_target is not None:
+            # A completed GOTO stays valid while the DWARF tracks it: the
+            # record is dropped on a new slew, an abort or tracking off.
+            return True
         max_age_value = self.settings.goto_valid_seconds
         max_age = float(max_age_value) if max_age_value is not None else 0.0
         if max_age <= 0.0:
@@ -3499,6 +3503,7 @@ class DwarfSession:
         await self._ensure_ws()
         await self._release_previous_one_click_request()
         self._one_click_goto_active = False
+        self._clear_goto(reason="tracking_stopped")
         try:
             await self._send_and_check(
                 protocol_pb2.ModuleId.MODULE_ASTRO,

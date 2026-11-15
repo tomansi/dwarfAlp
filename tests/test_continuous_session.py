@@ -284,3 +284,12 @@ async def test_frames_left_on_device_are_reported(monkeypatch) -> None:
             "will_be_deleted": False,
         }
     ]
+
+
+def test_goto_stays_valid_while_tracking() -> None:
+    session = _session()
+    session._record_goto(0.712, 41.27)
+    session._last_goto_time = 0.0  # long ago
+    assert session._has_recent_goto()
+    session._clear_goto(reason="tracking_stopped")
+    assert not session._has_recent_goto()
