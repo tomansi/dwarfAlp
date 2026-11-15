@@ -203,3 +203,16 @@ def test_tracking_stopped_message() -> None:
     assert entries[0].kind == STOP
     assert "Tracking stopped by NINA" in entries[0].text
     assert "NINA stopped tracking" in entries[1].text
+
+
+def test_frames_left_warning() -> None:
+    tr = ActivityTranslator()
+    kept = tr.feed(_js("dwarf.camera.continuous_frames_left", frames_left=5), 0.0)
+    deleted = tr.feed(
+        _js("dwarf.camera.continuous_frames_left", frames_left=2, will_be_deleted=True), 1.0
+    )
+    assert kept[0].kind == WARN
+    assert _texts(kept) == [
+        "The DWARF took 5 more frame(s) than NINA asked for; they stay on the DWARF"
+    ]
+    assert "deleted with the session" in deleted[0].text

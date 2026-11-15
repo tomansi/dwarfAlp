@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from dwarf_alpaca.config.settings import Settings
+from dwarf_alpaca.dwarf import session as session_module
 from dwarf_alpaca.dwarf.ftp_client import FtpPhotoEntry
 from dwarf_alpaca.dwarf.session import DwarfSession, _ContinuousAstroSession, _OperationState
 
@@ -13,42 +14,27 @@ def _entry(name: str, end: float) -> FtpPhotoEntry:
     return FtpPhotoEntry(directory=FOLDER, name=name, timestamp=end, path=f"{FOLDER}/{name}")
 
 
-def test_select_picks_oldest_fresh_frame_and_skips_stale_ones() -> None:
+def test_select_delivers_oldest_frame_even_if_it_finished_before_the_request() -> None:
     entries = [_entry("a.fits", 100.0), _entry("b.fits", 106.0), _entry("c.fits", 112.0)]
-    chosen, skipped = DwarfSession._select_continuous_frame(
-        entries,
-        delivered=set(),
-        duration=5.0,
-        valid_after=90.0,
-        requested_at=105.0,
+    chosen = DwarfSession._select_continuous_frame(
+        entries, delivered=set(), duration=5.0, valid_after=90.0
     )
-    assert chosen is not None and chosen.name == "b.fits"
-    assert [entry.name for entry in skipped] == ["a.fits"]
+    assert chosen is not None and chosen.name == "a.fits"
 
 
 def test_select_ignores_delivered_and_pre_session_frames() -> None:
     entries = [_entry("old.fits", 60.0), _entry("a.fits", 100.0), _entry("b.fits", 106.0)]
-    chosen, skipped = DwarfSession._select_continuous_frame(
-        entries,
-        delivered={f"{FOLDER}/a.fits"},
-        duration=5.0,
-        valid_after=90.0,
-        requested_at=90.0,
+    chosen = DwarfSession._select_continuous_frame(
+        entries, delivered={f"{FOLDER}/a.fits"}, duration=5.0, valid_after=90.0
     )
     assert chosen is not None and chosen.name == "b.fits"
-    assert skipped == []
 
 
-def test_select_waits_when_no_frame_finished_after_request() -> None:
-    chosen, skipped = DwarfSession._select_continuous_frame(
-        [_entry("a.fits", 100.0)],
-        delivered=set(),
-        duration=5.0,
-        valid_after=90.0,
-        requested_at=110.0,
+def test_select_waits_when_every_frame_was_delivered() -> None:
+    chosen = DwarfSession._select_continuous_frame(
+        [_entry("a.fits", 100.0)], delivered={f"{FOLDER}/a.fits"}, duration=5.0, valid_after=90.0
     )
     assert chosen is None
-    assert [entry.name for entry in skipped] == ["a.fits"]
 
 
 def _session(**overrides) -> DwarfSession:
@@ -235,34 +221,55 @@ def test_failed_rename_is_the_same_frame() -> None:
     # Delivered as "a.fits", later renamed by the firmware to "failed_a.fits".
     entries = [_entry("failed_a.fits", 100.0), _entry("b.fits", 130.0)]
     delivered = {f"{FOLDER}/a.fits"}
-    chosen, skipped = DwarfSession._select_continuous_frame(
-        entries, delivered=delivered, duration=30.0, valid_after=60.0, requested_at=110.0
+    chosen = DwarfSession._select_continuous_frame(
+        entries, delivered=delivered, duration=30.0, valid_after=60.0
     )
     assert chosen is not None and chosen.name == "b.fits"
-    assert skipped == []
 
 
 def test_rename_in_progress_yields_one_candidate() -> None:
     entries = [_entry("a.fits", 100.0), _entry("failed_a.fits", 100.0)]
-    chosen, skipped = DwarfSession._select_continuous_frame(
-        entries, delivered=set(), duration=30.0, valid_after=60.0, requested_at=90.0
+    chosen = DwarfSession._select_continuous_frame(
+        entries, delivered=set(), duration=30.0, valid_after=60.0
     )
     assert chosen is not None and chosen.name == "failed_a.fits"
-    assert skipped == []
     assert DwarfSession._continuous_frame_key(entries[0]) == DwarfSession._continuous_frame_key(
         entries[1]
     )
 
 
-def test_deliver_all_returns_oldest_frame_without_skipping() -> None:
-    entries = [_entry("a.fits", 1000.0), _entry("b.fits", 1030.0)]
-    chosen, skipped = DwarfSession._select_continuous_frame(
-        entries,
-        delivered=set(),
-        duration=30.0,
-        valid_after=960.0,
-        requested_at=1100.0,
-        deliver_all=True,
+@pytest.mark.asyncio
+async def test_frames_left_on_device_are_reported(monkeypatch) -> None:
+    session = _session()
+    session.simulation = False
+    cont = _ContinuousAstroSession(
+        key=session._continuous_key(10.0, True),
+        started_at=0.0,
+        first_capture_id="c0",
+        folder=FOLDER,
     )
-    assert skipped == []
-    assert chosen is entries[0]
+    cont.delivered = {f"{FOLDER}/a.fits"}
+    cont.frames_delivered = 1
+
+    async def fake_list(_folder):
+        return [_entry("a.fits", 10.0), _entry("b.fits", 20.0), _entry("failed_c.fits", 30.0)]
+
+    monkeypatch.setattr(session._ftp_client, "list_astro_raw_fits", fake_list)
+    logged: list[dict] = []
+    monkeypatch.setattr(
+        session_module.logger,
+        "warning",
+        lambda event, **fields: logged.append({"event": event, **fields}),
+    )
+
+    await session._report_frames_left_on_device(cont, wait_for_stop=False)
+
+    assert logged == [
+        {
+            "event": "dwarf.camera.continuous_frames_left",
+            "folder": FOLDER,
+            "frames_left": 2,
+            "frames_delivered": 1,
+            "will_be_deleted": False,
+        }
+    ]

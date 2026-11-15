@@ -116,7 +116,6 @@ the authoritative source.
 | `continuous_astro_session` | DWARF 3 light frames always use one continuous DWARF session (the DWARF always captures as a stacking session on the telescope); consecutive exposures with the same exposure, gain, filter and binning receive the next raw FITS. The session ends on settings change, abort, slew, tracking off, focuser move, filter change, disconnect or idle timeout. Not shown in the GUI; `false` is only a diagnostic fallback to one session per frame (CLI/env) | `true` |
 | `continuous_astro_max_frames` | Frame count requested from the DWARF for a continuous session | `999` |
 | `continuous_astro_idle_timeout_seconds` | Stop a continuous session after this long without a new exposure request | `120` |
-| `continuous_astro_deliver_all_frames` | Deliver every frame of a continuous session to the client, oldest first, instead of skipping frames that finished before the request | `false` |
 | `astro_capture_ready_timeout_seconds` | How long a new capture waits for the DWARF to finish closing the previous session | `150` |
 | `ws_ping_interval_seconds` | WebSocket heartbeat period | `5` |
 | `temperature_refresh_interval_seconds` | Sensor temperature poll period | `5` |

@@ -195,6 +195,7 @@ class ActivityTranslator:
             "dwarf.camera.dark_library_missing_continuing": self._on_no_darks,
             "dwarf.camera.continuous_session_started": self._on_session_started,
             "dwarf.camera.continuous_frame_delivered": self._on_continuous_frame,
+            "dwarf.camera.continuous_frames_left": self._on_frames_left,
             "dwarf.camera.continuous_frame_skipped": self._on_frame_skipped,
             "dwarf.camera.continuous_frame_failed": self._on_frame_failed,
             "dwarf.camera.continuous_session_ended": self._on_session_ended,
@@ -538,6 +539,19 @@ class ActivityTranslator:
 
     def _on_goto_retry(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         return [ActivityEntry(t, WARN, f"GOTO retrying (DWARF code {f.get('code')})", group="goto_retry")]
+
+    def _on_frames_left(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        left = f.get("frames_left")
+        where = (
+            "they will be deleted with the session"
+            if f.get("will_be_deleted")
+            else "they stay on the DWARF"
+        )
+        return [
+            ActivityEntry(
+                t, WARN, f"The DWARF took {left} more frame(s) than NINA asked for; {where}"
+            )
+        ]
 
     def _on_goto_waits_for_capture(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         return [

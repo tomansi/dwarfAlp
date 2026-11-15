@@ -646,6 +646,7 @@ class DwarfSession:
         self._autofocus_completion_event = asyncio.Event()
         self._autofocus_started_event = asyncio.Event()
         self._background_go_live_task: asyncio.Task | None = None
+        self._frames_left_task: asyncio.Task | None = None
         self._calibration_autofocus_time: float | None = None
         self._calibration_autofocus_ip: str | None = None
         self._calibration_status = "unknown"
@@ -6731,7 +6732,6 @@ class DwarfSession:
         state.start_time = None
 
     # region continuous astronomy session
-    _CONTINUOUS_FRESHNESS_TOLERANCE_SECONDS = 2.0
     _CONTINUOUS_CLOCK_TOLERANCE_SECONDS = 10.0
 
     def _continuous_session_wanted(self, light: bool, mini_profile: bool) -> bool:
@@ -6818,24 +6818,17 @@ class DwarfSession:
         delivered: set[str],
         duration: float,
         valid_after: float,
-        requested_at: float,
-        freshness_tolerance: float = 2.0,
         clock_tolerance: float = 10.0,
-        deliver_all: bool = False,
-    ) -> tuple[FtpPhotoEntry | None, list[FtpPhotoEntry]]:
-        """Pick the frame to hand to the current exposure request.
+    ) -> FtpPhotoEntry | None:
+        """Pick the next frame to hand to the client: the oldest not yet delivered.
 
         ``delivered`` holds frame keys (see ``_continuous_frame_key``).
         ``entry.timestamp`` is the time the DWARF wrote the frame (end of the
         exposure). Frames that started before the session (or before anything
-        that invalidated it) are never used. Frames that finished before the
-        client asked for this exposure are returned as ``skipped`` so the client
-        never receives an image older than its request; the oldest remaining
-        frame is chosen so frames are delivered in order.
-
-        With ``deliver_all`` nothing is skipped: the oldest frame not yet
-        delivered is returned, even if it finished before the request, so the
-        client receives every frame of the session in order.
+        that invalidated it) are never used. Frames are always delivered in
+        order, none is skipped: when the Wi-Fi download is slower than the
+        exposures the client falls behind the DWARF, and frames it never asks
+        for stay on the DWARF (reported when the session ends).
         """
 
         # One candidate per exposure: if both the original and the ``failed_``
@@ -6851,15 +6844,7 @@ class DwarfSession:
             if current is None or DwarfSession._is_failed_stack_frame(entry):
                 by_key[key] = entry
         candidates = sorted(by_key.values(), key=lambda item: (item.timestamp, item.path))
-        if deliver_all:
-            return (candidates[0] if candidates else None), []
-        skipped = [
-            entry for entry in candidates if entry.timestamp < requested_at - freshness_tolerance
-        ]
-        fresh = [
-            entry for entry in candidates if entry.timestamp >= requested_at - freshness_tolerance
-        ]
-        return (fresh[0] if fresh else None), skipped
+        return candidates[0] if candidates else None
 
     async def _download_continuous_frame(self, entry: FtpPhotoEntry) -> np.ndarray | None:
         # The FTP listing can show a FITS while the firmware is still writing it,
@@ -6923,28 +6908,13 @@ class DwarfSession:
                     folder=cont.folder,
                     error=str(exc),
                 )
-            chosen, skipped = self._select_continuous_frame(
+            chosen = self._select_continuous_frame(
                 entries,
                 delivered=cont.delivered,
                 duration=duration,
                 valid_after=cont.started_at,
-                requested_at=requested_at,
-                freshness_tolerance=self._CONTINUOUS_FRESHNESS_TOLERANCE_SECONDS,
                 clock_tolerance=self._CONTINUOUS_CLOCK_TOLERANCE_SECONDS,
-                deliver_all=bool(
-                    getattr(self.settings, "continuous_astro_deliver_all_frames", False)
-                ),
             )
-            for entry in skipped:
-                cont.delivered.add(self._continuous_frame_key(entry))
-                cont.frames_skipped += 1
-                logger.info(
-                    "dwarf.camera.continuous_frame_skipped",
-                    path=entry.path,
-                    frame_end=entry.timestamp,
-                    requested_at=requested_at,
-                    reason="finished_before_request",
-                )
             if chosen is not None:
                 frame = await self._download_continuous_frame(chosen)
                 if self._continuous is not cont or state.capture_id != capture_id:
@@ -7082,10 +7052,45 @@ class DwarfSession:
             if not self.simulation:
                 task = asyncio.create_task(self._go_live_when_capture_stopped())
                 self._background_go_live_task = task
+        if cont.folder and not self.simulation:
+            self._frames_left_task = asyncio.create_task(
+                self._report_frames_left_on_device(cont, wait_for_stop=running or strict)
+            )
         if cont.folder:
             folder_name = cont.folder.rstrip("/").rsplit("/", 1)[-1]
             if folder_name.startswith("DWARF_RAW_"):
                 self._schedule_astro_folder_cleanup(folder_name, capture_id=cont.first_capture_id)
+
+    async def _report_frames_left_on_device(
+        self, cont: _ContinuousAstroSession, *, wait_for_stop: bool
+    ) -> None:
+        """Warn when the DWARF took frames the client never asked for.
+
+        Only reported when the session folder listing shows them, i.e. when it
+        is certain they exist on the DWARF.
+        """
+
+        try:
+            if wait_for_stop:
+                await self._wait_for_astro_capture_ready()
+            entries = await self._ftp_client.list_astro_raw_fits(cont.folder or "")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+        keys = {self._continuous_frame_key(entry) for entry in entries}
+        left = len(keys - cont.delivered)
+        if left <= 0:
+            return
+        logger.warning(
+            "dwarf.camera.continuous_frames_left",
+            folder=cont.folder,
+            frames_left=left,
+            frames_delivered=cont.frames_delivered,
+            will_be_deleted=bool(
+                getattr(self.settings, "delete_astro_session_after_download", False)
+            ),
+        )
 
     # endregion
 
