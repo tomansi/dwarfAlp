@@ -1010,6 +1010,7 @@ async def test_slew_preparation_continues_when_autofocus_never_starts() -> None:
     session = DwarfSession(
         _settings(
             dwarf_device_model="dwarf3",
+            autofocus_before_calibration=True,
             calibration_autofocus_start_timeout_seconds=0.05,
             calibration_autofocus_timeout_seconds=5.0,
         )

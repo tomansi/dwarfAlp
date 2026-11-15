@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     dark_check_timeout_seconds: float = 5.0
     goto_valid_seconds: float = 300.0
     calibration_valid_seconds: float = 900.0
+    # Astro autofocus before the DWARF calibrates (GOTO or calibration after
+    # start). Off by default: DWARF 3 firmware V1.5.4.1 acknowledges the command
+    # but never starts autofocus, which cost 20 s on every GOTO.
+    autofocus_before_calibration: bool = False
     calibration_autofocus_timeout_seconds: float = 120.0
     calibration_autofocus_start_timeout_seconds: float = 20.0
     calibration_timeout_seconds: float = 300.0

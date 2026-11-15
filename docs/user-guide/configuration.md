@@ -97,6 +97,7 @@ the authoritative source.
 | `goto_completion_timeout_seconds` | GoTo completion wait | `120` |
 | `goto_valid_seconds` | Recent-GoTo validity for capture | `300` |
 | `calibration_valid_seconds` | Calibration reuse period | `900` |
+| `autofocus_before_calibration` | Astro autofocus before the DWARF calibrates (GOTO, calibration after start). DWARF 3 firmware V1.5.4.1 never starts it, so it is off | `false` |
 | `calibration_autofocus_timeout_seconds` | Required autofocus wait | `120` |
 | `calibration_timeout_seconds` | Firmware solve/calibration wait | `300` |
 | `calibration_wait_for_slew_seconds` | Combined calibration + slew wait | `420` |

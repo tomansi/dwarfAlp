@@ -3051,19 +3051,20 @@ class DwarfSession:
     async def _prepare_calibration_autofocus(self) -> tuple[float, float]:
         latitude, longitude = self._require_observer_location()
         if not self._has_recent_calibration_autofocus():
-            try:
-                await self._autofocus_before_calibration()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                # Autofocus only improves the plate solve of the DWARF's own
-                # calibration; a missing or failed autofocus must not block
-                # the GOTO that the client asked for.
-                logger.warning(
-                    "dwarf.focus.autofocus.before_calibration.skipped",
-                    error=str(exc) or type(exc).__name__,
-                    error_type=type(exc).__name__,
-                )
+            if self.settings.autofocus_before_calibration:
+                try:
+                    await self._autofocus_before_calibration()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    # Autofocus only improves the plate solve of the DWARF's own
+                    # calibration; a missing or failed autofocus must not block
+                    # the GOTO that the client asked for.
+                    logger.warning(
+                        "dwarf.focus.autofocus.before_calibration.skipped",
+                        error=str(exc) or type(exc).__name__,
+                        error_type=type(exc).__name__,
+                    )
             self._calibration_autofocus_time = time.time()
             self._calibration_autofocus_ip = self.settings.dwarf_ap_ip
         self._calibration_status = "awaiting target"
@@ -3150,7 +3151,8 @@ class DwarfSession:
                 )
                 raise
             try:
-                await self._autofocus_before_calibration()
+                if self.settings.autofocus_before_calibration:
+                    await self._autofocus_before_calibration()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
