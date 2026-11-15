@@ -172,6 +172,10 @@ async def put_connected(
             session.simulation = simulation_override
         state.using_simulation = session.is_simulated
     state.connected = value
+    logger.info(
+        "alpaca.telescope.connected" if value else "alpaca.telescope.disconnected",
+        simulated=session.is_simulated,
+    )
     return alpaca_response()
 
 
@@ -379,9 +383,11 @@ async def slew_to_coordinates_async(
     Declination_query: float | None = Query(None, alias="Declination", ge=-90.0, le=90.0),
 ):
     if not state.connected:
+        logger.warning("alpaca.telescope.slew_rejected", reason="telescope not connected")
         raise HTTPException(status_code=400, detail="Telescope not connected")
     ra = await resolve_parameter(request, "RightAscension", float, RightAscension_query)
     dec = await resolve_parameter(request, "Declination", float, Declination_query)
+    logger.info("alpaca.telescope.slew_request", ra_hours=ra, dec_degrees=dec)
 
     ra_converted_from_degrees = False
     if not 0.0 <= ra <= 24.0:
@@ -437,6 +443,7 @@ async def slew_to_coordinates_async(
                 detail = (
                     f"DWARF command {exc.module_id}:{exc.command_id} failed with code {exc.code}"
                 )
+            logger.warning("alpaca.telescope.slew_failed", detail=detail)
             raise HTTPException(status_code=502, detail=detail) from exc
         except asyncio.TimeoutError as exc:
             state.slewing = False
@@ -444,6 +451,10 @@ async def slew_to_coordinates_async(
             state.declination_rate = 0.0
             state.target_ra = None
             state.target_dec = None
+            logger.warning(
+                "alpaca.telescope.slew_failed",
+                detail="timed out waiting for the DWARF to acknowledge the GOTO",
+            )
             raise HTTPException(
                 status_code=504,
                 detail="Timed out while waiting for DWARF to acknowledge the GoTo command.",

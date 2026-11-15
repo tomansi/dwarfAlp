@@ -209,6 +209,14 @@ class ActivityTranslator:
             "dwarf.focus.autofocus.before_calibration.starting": self._on_autofocus_start,
             "dwarf.focus.autofocus.before_calibration.completed": self._on_autofocus_done,
             "dwarf.focus.autofocus.before_calibration.failed": self._on_autofocus_failed,
+            "dwarf.focus.autofocus.before_calibration.not_started": self._on_autofocus_not_started,
+            "dwarf.focus.autofocus.before_calibration.skipped": self._on_autofocus_skipped,
+            "server.calibration_after_start.failed": self._on_startup_calibration_failed,
+            "alpaca.telescope.connected": self._on_telescope_connected,
+            "alpaca.telescope.disconnected": self._on_telescope_disconnected,
+            "alpaca.telescope.slew_request": self._on_slew_request,
+            "alpaca.telescope.slew_rejected": self._on_slew_rejected,
+            "alpaca.telescope.slew_failed": self._on_slew_failed,
             "dwarf.battery.notification": self._on_battery,
             "http.request.error": self._on_http_error,
         }
@@ -539,6 +547,58 @@ class ActivityTranslator:
 
     def _on_autofocus_failed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         return [ActivityEntry(t, ERROR, f"Autofocus failed: {f.get('error')}")]
+
+    def _on_autofocus_not_started(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [
+            ActivityEntry(
+                t,
+                WARN,
+                f"The DWARF did not start autofocus (waited {_num(f.get('waited_seconds'))} s)",
+            )
+        ]
+
+    def _on_autofocus_skipped(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [ActivityEntry(t, WARN, "Continuing without autofocus")]
+
+    def _on_startup_calibration_failed(
+        self, f: dict[str, Any], t: float
+    ) -> list[ActivityEntry]:
+        reason = f.get("error") or f.get("error_type") or "unknown error"
+        return [ActivityEntry(t, WARN, f"Preparation for the first GOTO failed: {reason}")]
+
+    # endregion
+
+    # region telescope
+    def _on_telescope_connected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.telescope = "connected"
+        return [ActivityEntry(t, OK, "Telescope connected by NINA")]
+
+    def _on_telescope_disconnected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.telescope = "disconnected"
+        return [ActivityEntry(t, INFO, "Telescope disconnected by NINA")]
+
+    def _on_slew_request(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [
+            ActivityEntry(
+                t,
+                ACTION,
+                f"NINA requested a slew to RA {_num(f.get('ra_hours'), 3)} h, "
+                f"Dec {_num(f.get('dec_degrees'), 2)}°",
+            )
+        ]
+
+    def _on_slew_rejected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [
+            ActivityEntry(
+                t,
+                ERROR,
+                f"Slew rejected: {f.get('reason')} (reconnect the telescope in NINA)",
+            )
+        ]
+
+    def _on_slew_failed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.telescope = "idle"
+        return [ActivityEntry(t, ERROR, f"Slew failed: {f.get('detail')}")]
 
     # endregion
 

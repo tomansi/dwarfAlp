@@ -119,3 +119,38 @@ def test_low_battery_warns_once() -> None:
     first = tr.feed(_js("dwarf.battery.notification", battery_percent=18), 0)
     second = tr.feed(_js("dwarf.battery.notification", battery_percent=17), 1)
     assert len(first) == 1 and first[0].kind == WARN and second == []
+
+
+def test_telescope_slew_messages() -> None:
+    translator = ActivityTranslator()
+
+    connected = translator.feed(_js("alpaca.telescope.connected", simulated=False), 0.0)
+    assert _texts(connected) == ["Telescope connected by NINA"]
+
+    request = translator.feed(
+        _js("alpaca.telescope.slew_request", ra_hours=20.98, dec_degrees=44.33), 1.0
+    )
+    assert _texts(request) == ["NINA requested a slew to RA 20.980 h, Dec 44.33°"]
+
+    rejected = translator.feed(
+        _js("alpaca.telescope.slew_rejected", reason="telescope not connected"), 2.0
+    )
+    assert rejected[0].kind == ERROR
+    assert "reconnect the telescope" in rejected[0].text
+
+
+def test_autofocus_not_started_is_a_warning() -> None:
+    translator = ActivityTranslator()
+
+    entries = translator.feed(
+        _js("dwarf.focus.autofocus.before_calibration.not_started", waited_seconds=20.0),
+        0.0,
+    )
+    entries += translator.feed(
+        _js("dwarf.focus.autofocus.before_calibration.skipped", error="x"), 0.1
+    )
+    assert [entry.kind for entry in entries] == [WARN, WARN]
+    assert _texts(entries) == [
+        "The DWARF did not start autofocus (waited 20 s)",
+        "Continuing without autofocus",
+    ]

@@ -642,6 +642,7 @@ class DwarfSession:
         self._calibration_task = None  # type: asyncio.Task[None] | None
         self._calibration_result_event = asyncio.Event()
         self._autofocus_completion_event = asyncio.Event()
+        self._autofocus_started_event = asyncio.Event()
         self._calibration_autofocus_time: float | None = None
         self._calibration_autofocus_ip: str | None = None
         self._calibration_status = "unknown"
@@ -1664,6 +1665,7 @@ class DwarfSession:
             return
         state_value = int(message.state)
         state_name = {1: "running", 3: "completed"}.get(state_value, "unknown")
+        self._autofocus_started_event.set()
         if state_value == 1:
             self._calibration_status = "autofocusing"
             self._calibration_detail = "Astronomical autofocus is running"
@@ -2949,6 +2951,7 @@ class DwarfSession:
         )
         deadline = time.monotonic() + timeout
         self._autofocus_completion_event.clear()
+        self._autofocus_started_event.clear()
         self._calibration_status = "autofocusing"
         self._calibration_detail = "Astronomical autofocus is starting"
         request = ReqAstroAutoFocus(mode=1)
@@ -2976,6 +2979,28 @@ class DwarfSession:
             response, (AstroAutoFocusState, AstroAutoFocusFastState)
         ) and int(response.state) == 3
         if response is not None and not completed_in_response:
+            # DWARF 3 has been seen acknowledging the command and then sending
+            # no autofocus notification at all. Detect that early instead of
+            # holding the caller (for example a NINA slew) for the full timeout.
+            start_timeout = float(
+                getattr(self.settings, "calibration_autofocus_start_timeout_seconds", 0.0)
+                or 0.0
+            )
+            if start_timeout > 0.0 and not self._autofocus_completion_event.is_set():
+                remaining = max(0.0, deadline - time.monotonic())
+                try:
+                    await asyncio.wait_for(
+                        self._autofocus_started_event.wait(),
+                        timeout=min(start_timeout, remaining),
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "dwarf.focus.autofocus.before_calibration.not_started",
+                        waited_seconds=round(min(start_timeout, remaining), 1),
+                    )
+                    raise asyncio.TimeoutError(
+                        "the DWARF acknowledged autofocus but never started it"
+                    ) from None
             remaining = max(0.0, deadline - time.monotonic())
             await asyncio.wait_for(
                 self._autofocus_completion_event.wait(), timeout=remaining
@@ -2994,7 +3019,19 @@ class DwarfSession:
     async def _prepare_calibration_autofocus(self) -> tuple[float, float]:
         latitude, longitude = self._require_observer_location()
         if not self._has_recent_calibration_autofocus():
-            await self._autofocus_before_calibration()
+            try:
+                await self._autofocus_before_calibration()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # Autofocus only improves the plate solve of the DWARF's own
+                # calibration; a missing or failed autofocus must not block
+                # the GOTO that the client asked for.
+                logger.warning(
+                    "dwarf.focus.autofocus.before_calibration.skipped",
+                    error=str(exc) or type(exc).__name__,
+                    error_type=type(exc).__name__,
+                )
             self._calibration_autofocus_time = time.time()
             self._calibration_autofocus_ip = self.settings.dwarf_ap_ip
         self._calibration_status = "awaiting target"

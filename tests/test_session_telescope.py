@@ -1002,3 +1002,65 @@ async def test_telescope_stop_axis_noop_when_not_active(monkeypatch):
     await session.telescope_stop_axis(0)
 
     assert captured == []
+
+
+@pytest.mark.asyncio
+async def test_slew_preparation_continues_when_autofocus_never_starts() -> None:
+    session = DwarfSession(
+        _settings(
+            dwarf_device_model="dwarf3",
+            calibration_autofocus_start_timeout_seconds=0.05,
+            calibration_autofocus_timeout_seconds=5.0,
+        )
+    )
+    session.simulation = False
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        return object()  # plain acknowledgement, no autofocus notification follows
+
+    session._send_and_check = fake_send_and_check  # type: ignore[method-assign]
+
+    started = time.monotonic()
+    latitude, longitude = await session._prepare_calibration_autofocus()
+
+    assert time.monotonic() - started < 2.0
+    assert (latitude, longitude) == (48.1372, 11.5756)
+    assert session._has_recent_calibration_autofocus()
+
+
+@pytest.mark.asyncio
+async def test_autofocus_waits_for_completion_once_started() -> None:
+    session = DwarfSession(
+        _settings(
+            dwarf_device_model="dwarf3",
+            calibration_autofocus_start_timeout_seconds=1.0,
+            calibration_autofocus_timeout_seconds=5.0,
+        )
+    )
+    session.simulation = False
+
+    async def notify(state: int) -> None:
+        packet = WsPacket(
+            module_id=protocol_pb2.ModuleId.MODULE_NOTIFY,
+            cmd=protocol_pb2.DwarfCMD.CMD_NOTIFY_ASTRO_AUTO_FOCUS_STATE,
+            type=TYPE_NOTIFICATION,
+            data=AstroAutoFocusState(state=state).SerializeToString(),
+        )
+        await session._handle_notification(packet)
+
+    async def fake_send_and_check(*_args, **_kwargs):
+        async def progress() -> None:
+            await asyncio.sleep(0.01)
+            await notify(1)
+            await asyncio.sleep(0.05)
+            await notify(3)
+
+        asyncio.get_running_loop().create_task(progress())
+        return object()
+
+    session._send_and_check = fake_send_and_check  # type: ignore[method-assign]
+
+    await session._autofocus_before_calibration()
+
+    assert session._autofocus_completion_event.is_set()
+    assert session.get_calibration_status()["status"] == "autofocus completed"

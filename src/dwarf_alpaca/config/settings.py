@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     goto_valid_seconds: float = 300.0
     calibration_valid_seconds: float = 900.0
     calibration_autofocus_timeout_seconds: float = 120.0
+    calibration_autofocus_start_timeout_seconds: float = 20.0
     calibration_timeout_seconds: float = 300.0
     calibration_wait_for_slew_seconds: float = 420.0
     auto_calibrate_on_slew: bool = True
