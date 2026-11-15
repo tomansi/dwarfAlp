@@ -2676,6 +2676,10 @@ class DwarfSession:
                 # after a stack; do the same before retrying.
                 logger.info("dwarf.telescope.goto.busy_go_live")
                 await self._astro_go_live()
+                # Record the whole-device state (exclusive tasks per subsystem)
+                # so the next log shows what the DWARF still considers busy.
+                with contextlib.suppress(Exception):
+                    await self._query_astro_capture_operation_state()
             await asyncio.sleep(
                 2.0 if pending_error.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY else 0.2
             )
