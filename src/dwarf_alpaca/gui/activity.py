@@ -200,6 +200,7 @@ class ActivityTranslator:
             "dwarf.telescope.goto.retrying": self._on_goto_retry,
             "dwarf.telescope.goto.waiting_for_capture_stop": self._on_goto_waits_for_capture,
             "dwarf.telescope.goto.one_click.rejected": self._on_goto_rejected,
+            "dwarf.camera.go_live_after_session": self._on_live_view_restored,
             "dwarf.telescope.goto.wait_result": self._on_goto_result,
             "dwarf.telescope.goto.wait_timeout": self._on_goto_timeout,
             "dwarf.telescope.goto.timeout": self._on_goto_timeout,
@@ -508,6 +509,9 @@ class ActivityTranslator:
                 t, WAIT, "GOTO waits until the DWARF finishes closing the capture session"
             )
         ]
+
+    def _on_live_view_restored(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [ActivityEntry(t, INFO, "DWARF back to live view")]
 
     def _on_goto_rejected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         code = f.get("code")

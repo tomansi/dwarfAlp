@@ -118,6 +118,43 @@ async def test_end_session_stops_device_and_queues_folder_cleanup() -> None:
     assert cleanups == [FOLDER.rsplit("/", 1)[-1]]
     assert session._last_continuous_folder == FOLDER
     await asyncio.sleep(0)
+    if session._background_go_live_task is not None:
+        session._background_go_live_task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_live_view_restored_after_continuous_session_stops() -> None:
+    session = _session()
+    session.simulation = False
+    session._continuous = _ContinuousAstroSession(
+        key=session._continuous_key(5.0, True),
+        started_at=0.0,
+        first_capture_id="c0",
+        folder=FOLDER,
+    )
+    session._astro_capture_operation_state = _OperationState.RUNNING
+    calls: list[str] = []
+
+    async def fake_stop(*, strict: bool = False) -> None:
+        calls.append("stop")
+
+    async def fake_wait(*, timeout=None) -> None:
+        calls.append("wait")
+
+    async def fake_go_live() -> None:
+        calls.append("go_live")
+
+    session._stop_astro_capture = fake_stop  # type: ignore[method-assign]
+    session._wait_for_astro_capture_ready = fake_wait  # type: ignore[method-assign]
+    session._astro_go_live = fake_go_live  # type: ignore[method-assign]
+    session._schedule_astro_folder_cleanup = (  # type: ignore[method-assign]
+        lambda folder, capture_id=None: None
+    )
+
+    await session._end_continuous_session(reason="idle_timeout")
+    await session._background_go_live_task
+
+    assert calls == ["stop", "wait", "go_live"]
 
 
 @pytest.mark.asyncio

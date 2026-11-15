@@ -645,6 +645,7 @@ class DwarfSession:
         self._calibration_result_event = asyncio.Event()
         self._autofocus_completion_event = asyncio.Event()
         self._autofocus_started_event = asyncio.Event()
+        self._background_go_live_task: asyncio.Task | None = None
         self._calibration_autofocus_time: float | None = None
         self._calibration_autofocus_ip: str | None = None
         self._calibration_status = "unknown"
@@ -2668,6 +2669,13 @@ class DwarfSession:
             # previous one-click GOTO target) before trying again.
             with contextlib.suppress(DwarfCommandError, asyncio.TimeoutError):
                 await self.telescope_abort_slew()
+            if pending_error.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY:
+                # Sky test 2026-11-15: after a RAW stacking session the DWARF 3
+                # kept answering "busy" even once tracking was stopped, and only
+                # a power cycle cleared it. The app returns to live view (11010)
+                # after a stack; do the same before retrying.
+                logger.info("dwarf.telescope.goto.busy_go_live")
+                await self._astro_go_live()
             await asyncio.sleep(
                 2.0 if pending_error.code == protocol_pb2.CODE_ASTRO_FUNCTION_BUSY else 0.2
             )
@@ -6984,6 +6992,18 @@ class DwarfSession:
                 await self._end_continuous_session(reason="idle_timeout")
                 return
 
+    async def _go_live_when_capture_stopped(self) -> None:
+        try:
+            await self._wait_for_astro_capture_ready()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+        if self._continuous is not None:
+            return  # a new session already started and handled live view itself
+        logger.info("dwarf.camera.go_live_after_session")
+        await self._astro_go_live()
+
     async def _end_continuous_session(self, *, reason: str, strict: bool = False) -> None:
         """Stop the shared DWARF session and queue its folder for cleanup."""
 
@@ -7009,6 +7029,11 @@ class DwarfSession:
         )
         if running or strict:
             await self._stop_astro_capture(strict=strict)
+            # The single-frame path returns to live view after each capture;
+            # do the same once the DWARF has finished closing the session.
+            if not self.simulation:
+                task = asyncio.create_task(self._go_live_when_capture_stopped())
+                self._background_go_live_task = task
         if cont.folder:
             folder_name = cont.folder.rstrip("/").rsplit("/", 1)[-1]
             if folder_name.startswith("DWARF_RAW_"):
