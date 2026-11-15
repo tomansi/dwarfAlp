@@ -153,10 +153,18 @@ async def test_live_view_restored_after_continuous_session_stops() -> None:
         lambda folder, capture_id=None: None
     )
 
+    async def fake_report(cont, *, wait_for_stop, after=None) -> None:
+        if after is not None:
+            await asyncio.wait({after})
+        calls.append("report")
+
+    session._report_frames_left_on_device = fake_report  # type: ignore[method-assign]
+
     await session._end_continuous_session(reason="idle_timeout")
     await session._background_go_live_task
+    await session._frames_left_task
 
-    assert calls == ["stop", "wait", "go_live"]
+    assert calls == ["stop", "wait", "go_live", "report"]
 
 
 @pytest.mark.asyncio
@@ -254,7 +262,10 @@ async def test_frames_left_on_device_are_reported(monkeypatch) -> None:
     async def fake_list(_folder):
         return [_entry("a.fits", 10.0), _entry("b.fits", 20.0), _entry("failed_c.fits", 30.0)]
 
-    monkeypatch.setattr(session._ftp_client, "list_astro_raw_fits", fake_list)
+    class FakeFtp:
+        list_astro_raw_fits = staticmethod(fake_list)
+
+    monkeypatch.setattr(session, "_ftp_client", FakeFtp())
     logged: list[dict] = []
     monkeypatch.setattr(
         session_module.logger,

@@ -7045,16 +7045,19 @@ class DwarfSession:
             frames_skipped=cont.frames_skipped,
             device_running=running,
         )
+        go_live_task: asyncio.Task | None = None
         if running or strict:
             await self._stop_astro_capture(strict=strict)
             # The single-frame path returns to live view after each capture;
             # do the same once the DWARF has finished closing the session.
             if not self.simulation:
-                task = asyncio.create_task(self._go_live_when_capture_stopped())
-                self._background_go_live_task = task
+                go_live_task = asyncio.create_task(self._go_live_when_capture_stopped())
+                self._background_go_live_task = go_live_task
         if cont.folder and not self.simulation:
             self._frames_left_task = asyncio.create_task(
-                self._report_frames_left_on_device(cont, wait_for_stop=running or strict)
+                self._report_frames_left_on_device(
+                    cont, wait_for_stop=running or strict, after=go_live_task
+                )
             )
         if cont.folder:
             folder_name = cont.folder.rstrip("/").rsplit("/", 1)[-1]
@@ -7062,16 +7065,23 @@ class DwarfSession:
                 self._schedule_astro_folder_cleanup(folder_name, capture_id=cont.first_capture_id)
 
     async def _report_frames_left_on_device(
-        self, cont: _ContinuousAstroSession, *, wait_for_stop: bool
+        self,
+        cont: _ContinuousAstroSession,
+        *,
+        wait_for_stop: bool,
+        after: asyncio.Task | None = None,
     ) -> None:
         """Warn when the DWARF took frames the client never asked for.
 
         Only reported when the session folder listing shows them, i.e. when it
-        is certain they exist on the DWARF.
+        is certain they exist on the DWARF. ``after`` is the return-to-live-view
+        task, which already waits for the capture to stop.
         """
 
         try:
-            if wait_for_stop:
+            if after is not None:
+                await asyncio.wait({after})
+            elif wait_for_stop:
                 await self._wait_for_astro_capture_ready()
             entries = await self._ftp_client.list_astro_raw_fits(cont.folder or "")
         except asyncio.CancelledError:
