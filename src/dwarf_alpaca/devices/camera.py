@@ -567,7 +567,11 @@ async def put_connected(
                     await session.camera_disconnect()
                 finally:
                     await session.release("camera")
+                logger.info("alpaca.camera.disconnected")
+        was_connected = state.connected
         state.connected = runtime.connected
+        if value and state.connected and not was_connected:
+            logger.info("alpaca.camera.connected")
         return alpaca_response()
 
 

@@ -163,3 +163,31 @@ def test_goto_busy_rejection_message() -> None:
     )
     assert entries[0].kind == WARN
     assert "busy" in entries[0].text
+
+
+def test_status_line_leaves_out_unknown_camera_and_battery() -> None:
+    tr = ActivityTranslator()
+    tr.configure(model="dwarf3", ip="192.168.7.81")
+    assert tr.status.render() == "DWARF 3 · not connected"
+
+    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0)
+    entries = tr.feed(_js("alpaca.camera.connected"), 1)
+    assert _texts(entries) == ["Camera connected by NINA"]
+    assert tr.status.render() == "DWARF 3 · connected (192.168.7.81)  |  Camera: idle"
+
+
+def test_server_stop_resets_status_and_explains() -> None:
+    tr = ActivityTranslator()
+    tr.configure(model="dwarf3", ip="192.168.7.81")
+    tr.feed("INFO uvicorn.error: Uvicorn running on http://192.168.7.7:11111", 0)
+    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0)
+    tr.feed(_js("dwarf.battery.notification", battery_percent=100), 0)
+    tr.feed(_js("alpaca.camera.connected"), 0)
+
+    stopped = tr.server_stopped(5.0)
+    tr.feed(_js("dwarf.system.master_lock_unlocked", ip="192.168.7.81"), 6.0)
+
+    assert [entry.kind for entry in stopped] == [STOP]
+    assert "server stopped" in stopped[0].text
+    assert tr.status.render() == "DWARF 3 · not connected"
+    assert tr.server_stopped(7.0) == []  # reported once

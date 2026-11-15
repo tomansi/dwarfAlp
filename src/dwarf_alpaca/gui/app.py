@@ -1555,6 +1555,10 @@ class MainWindow(QMainWindow):
     def _handle_server_status(self, status: ServerStatus) -> None:
         self._server_status_message = status.message
         self.server_widget.set_running(status.running, status.message)
+        if not status.running:
+            for entry in self.activity_translator.server_stopped(time.time()):
+                self.activity_console.append_entry(entry)
+            self._refresh_activity_status()
         if status.running:
             self.server_widget.set_master_lock_status(status.has_master_lock)
             self.server_widget.set_battery_status(status.battery_percent)

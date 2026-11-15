@@ -87,7 +87,8 @@ class ActivityStatus:
     model: Optional[str] = None
     ip: Optional[str] = None
     connection: str = "not connected"
-    camera: str = "idle"
+    # None means "not known": the item is left out of the status line.
+    camera: Optional[str] = None
     session_frames: Optional[int] = None
     filter_name: Optional[str] = None
     telescope: Optional[str] = None
@@ -98,7 +99,9 @@ class ActivityStatus:
         connection = self.connection
         if self.ip and self.connection in {"connected", "not responding"}:
             connection = f"{self.connection} ({self.ip})"
-        parts = [f"{device} · {connection}", f"Camera: {self.camera}"]
+        parts = [f"{device} · {connection}"]
+        if self.camera:
+            parts.append(f"Camera: {self.camera}")
         if self.session_frames is not None:
             noun = "frame" if self.session_frames == 1 else "frames"
             parts.append(f"Continuous session: {self.session_frames} {noun}")
@@ -165,6 +168,7 @@ class ActivityTranslator:
         self._goto_warning_shown = False
         self._low_battery_warned = False
         self._released_at: Optional[float] = None
+        self._server_running = False
         self._handlers: dict[str, Callable[[dict[str, Any], float], list[ActivityEntry]]] = {
             "cli.start.profile": self._on_profile,
             "cli.start.connected": self._on_cli_connected,
@@ -173,7 +177,8 @@ class ActivityTranslator:
             "dwarf.system.master_lock_acquired": self._on_lock_acquired,
             "dwarf.system.master_lock_unlocked": self._on_lock_released,
             "dwarf.ws.connect_failed": self._on_connect_failed,
-            "dwarf.camera.disconnect.local_only": self._on_camera_disconnect,
+            "alpaca.camera.connected": self._on_camera_connect,
+            "alpaca.camera.disconnected": self._on_camera_disconnect,
             "filterwheel.position_set": self._on_filter,
             "filterwheel.initialize_position": self._on_filter,
             "alpaca.camera.start_exposure_request": self._on_exposure_request,
@@ -233,9 +238,33 @@ class ActivityTranslator:
         if ip:
             self.status.ip = ip
 
+    def server_stopped(self, created: float) -> list[ActivityEntry]:
+        """Reset everything that is no longer known once the server has stopped."""
+
+        if not self._server_running:
+            return []
+        self._server_running = False
+        self._released_at = None
+        self._continuous = False
+        self.status.connection = "not connected"
+        self.status.camera = None
+        self.status.session_frames = None
+        self.status.filter_name = None
+        self.status.telescope = None
+        self.status.battery = None
+        return [
+            ActivityEntry(
+                created,
+                STOP,
+                "Alpaca server stopped: the DWARF is released and NINA can no longer "
+                "reach it",
+            )
+        ]
+
     def feed(self, message: str, created: float) -> list[ActivityEntry]:
         uvicorn = _UVICORN_RE.search(message)
         if uvicorn:
+            self._server_running = True
             return [
                 ActivityEntry(created, OK, f"Alpaca server running on port {uvicorn.group(1)}")
             ]
@@ -265,10 +294,8 @@ class ActivityTranslator:
         return [ActivityEntry(t, INFO, f"Starting Alpaca server on port {f.get('port')}")]
 
     def _on_server_stopped(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
-        self.status.connection = "not connected"
-        self.status.camera = "idle"
-        self.status.session_frames = None
-        return [ActivityEntry(t, STOP, "Alpaca server stopped")]
+        self._server_running = True  # make sure the reset and message happen once
+        return self.server_stopped(t)
 
     def _on_lock_acquired(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         args = f.get("positional_args") or []
@@ -286,12 +313,15 @@ class ActivityTranslator:
         return [ActivityEntry(t, OK, f"Connected to {device} at {ip}")]
 
     def _on_lock_released(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
-        self.status.connection = "released"
         self._released_at = t
+        # Before the server runs (start-up checks) or after it stopped the DWARF
+        # is simply not in use; "released" only makes sense while serving.
+        self.status.connection = "released" if self._server_running else "not connected"
         return []
 
     def _on_connect_failed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         self.status.connection = "not responding"
+        self.status.battery = None  # last value is stale while the DWARF is unreachable
         ip = self.status.ip or "the configured IP"
         return [
             ActivityEntry(
@@ -302,6 +332,10 @@ class ActivityTranslator:
                 group="connect_failed",
             )
         ]
+
+    def _on_camera_connect(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.camera = "idle"
+        return [ActivityEntry(t, OK, "Camera connected by NINA")]
 
     def _on_camera_disconnect(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         self.status.camera = "disconnected"
