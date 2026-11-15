@@ -34,12 +34,13 @@ checks below after updating.
 | 2026-11-15 | First GOTO from NINA (NGC 7000, NGC 2281): one-click GOTO, plate solve, tracking | OK in ~20–25 s |
 | 2026-11-15 | 10 × 10 s sequence after GOTO (HFR ≈ 1.7, ~450 stars) | OK |
 | 2026-11-15 | Second GOTO after a capture session | Fails: DWARF answers -11501 (busy) until power cycled; fix pending test |
+| 2026-11-15 (2nd session) | GOTO → sequence → GOTO to another target (M31, then Caldwell 20) with return to live view after each session | OK, no power cycle needed; GOTO in 19–31 s |
+| 2026-11-15 (2nd session) | Abort from NINA during a 30 s exposure | OK: session ended, DWARF ready after 31 s |
+| 2026-11-15 (2nd session) | In-order delivery, frames left on the DWARF reported | OK (3–8 extra frames while the idle timeout ran) |
 | 2026-11-15 | Astro autofocus before calibration | DWARF acknowledges but never starts it; GOTO now continues without it |
 | 2026-11-15 | Folder names created by one-click GOTO (`Caldwell20`, `NGC2281`) | Differ from the app (`C 20`, `NGC 2281`); the app still recognises them |
 
 ## Pending checks
 
-- GOTO → sequence → GOTO to another target (GoLive after the session, busy retry).
 - NINA `Set Tracking: Stopped` and end-of-sequence "Stop tracking" stop the DWARF tracking.
-- Cancelling a sequence from NINA (AbortExposure) ends the DWARF session.
-- "Deliver every frame in order" option.
+- Calibration started from dwarfAlp ("Prepare calibration after start").
