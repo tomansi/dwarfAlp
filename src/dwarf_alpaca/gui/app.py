@@ -13,7 +13,7 @@ import httpx
 import structlog
 import yaml
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QIcon, QKeySequence, QTextCursor
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QSplitter,
+    QStyleFactory,
     QTabWidget,
     QTextEdit,
     QVBoxLayout,
@@ -205,6 +206,21 @@ class ActivityConsole(QTextEdit):
         cursor.removeSelectedText()
 
 
+IP_FIELD_WIDTH = 140
+
+
+def _compact_form() -> QFormLayout:
+    """Form where only text such as wrapped labels fills the row.
+
+    Value fields get a fixed width (see the widgets), so they no longer stretch
+    across the whole tab.
+    """
+
+    form = QFormLayout()
+    form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+    return form
+
+
 def _inline_row(*items: QWidget | str) -> QWidget:
     """Lay out several fields on one form row (strings become small labels)."""
 
@@ -228,7 +244,7 @@ class SettingsOverridesWidget(QGroupBox):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__("Server Overrides", parent)
-        form = QFormLayout()
+        form = _compact_form()
 
         self.http_host_edit = QLineEdit()
         self.http_port_spin = QSpinBox()
@@ -243,10 +259,8 @@ class SettingsOverridesWidget(QGroupBox):
             display = f"{label} ({value})"
             self.ws_client_id_combo.addItem(display, value)
         self.ws_client_id_combo.setInsertPolicy(QComboBox.NoInsert)
-        self.force_sim_checkbox = QCheckBox("Force simulation")
-        self.force_sim_checkbox.setToolTip("Force simulation mode (no DWARF is used).")
-        self.skip_preflight_checkbox = QCheckBox("Skip preflight")
-        self.skip_preflight_checkbox.setToolTip("Skip connectivity preflight.")
+        self.force_sim_checkbox = QCheckBox("Force simulation mode")
+        self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
         self.calibrate_after_start_checkbox = QCheckBox("Prepare calibration after start")
         self.site_latitude_edit = QLineEdit()
         self.site_latitude_edit.setPlaceholderText("e.g. 48.1372")
@@ -268,8 +282,7 @@ class SettingsOverridesWidget(QGroupBox):
         self.timezone_combo = QComboBox()
         self.timezone_combo.setEditable(True)
         self.timezone_combo.setInsertPolicy(QComboBox.NoInsert)
-        self.timezone_combo.setMinimumContentsLength(20)
-        self.timezone_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.timezone_combo.setMinimumContentsLength(30)
         completer = QCompleter(TIMEZONE_CHOICES, self.timezone_combo)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
@@ -282,9 +295,12 @@ class SettingsOverridesWidget(QGroupBox):
         self.device_model_combo.currentIndexChanged.connect(self._sync_calibration_availability)
 
         # Compact layout: related fields share a row so the log area can be taller.
-        self.http_host_edit.setMaximumWidth(180)
+        self.http_host_edit.setFixedWidth(IP_FIELD_WIDTH)
         self.http_port_spin.setFixedWidth(90)
-        self.dwarf_ip_edit.setMaximumWidth(180)
+        self.dwarf_ip_edit.setFixedWidth(IP_FIELD_WIDTH)
+        for combo in (self.device_model_combo, self.ws_client_id_combo, self.timezone_combo):
+            combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+            combo.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.site_latitude_edit.setFixedWidth(110)
         self.site_longitude_edit.setFixedWidth(110)
         self.preflight_timeout_spin.setFixedWidth(90)
@@ -461,7 +477,7 @@ class ProvisioningWidget(QGroupBox):
         super().__init__("Provisioning", parent)
         layout = QVBoxLayout()
 
-        form = QFormLayout()
+        form = _compact_form()
         self.ssid_edit = QLineEdit()
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
@@ -469,6 +485,9 @@ class ProvisioningWidget(QGroupBox):
         self.ble_password_edit = QLineEdit()
         self.device_address_edit = QLineEdit()
 
+        for field in (self.ssid_edit, self.password_edit, self.device_address_edit):
+            field.setFixedWidth(240)
+        self.ble_password_edit.setFixedWidth(160)
         form.addRow("SSID", self.ssid_edit)
         form.addRow("Password", self.password_edit)
         form.addRow("", self.show_password_checkbox)
@@ -682,7 +701,7 @@ class CaptureOptionsWidget(QGroupBox):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__("Capture options", parent)
-        form = QFormLayout()
+        form = _compact_form()
 
         self.compatibility_label = QLabel(
             "<b>Tested with DWARF 3 only.</b> These options have not been tested "
@@ -737,6 +756,9 @@ class CaptureOptionsWidget(QGroupBox):
 
         form.addRow(self.compatibility_label)
         form.addRow(self.continuous_session_checkbox)
+        for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
+            spin.setFixedWidth(100)
+        self.continuous_max_frames_spin.setFixedWidth(90)
         form.addRow("Continuous idle timeout", self.continuous_idle_spin)
         form.addRow("Continuous max frames", self.continuous_max_frames_spin)
         form.addRow(self.deliver_all_checkbox)
@@ -954,8 +976,9 @@ class MainWindow(QMainWindow):
         # The tabs only take the height they need; the logs get the rest.
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        upper_height = tabs.sizeHint().height()
-        splitter.setSizes([upper_height, max(320, 720 - upper_height)])
+        self._splitter = splitter
+        self._upper_area = upper
+        self._splitter_placed = False
         content_layout.addWidget(splitter)
         self.setCentralWidget(content)
 
@@ -1114,6 +1137,16 @@ class MainWindow(QMainWindow):
 
     def _refresh_activity_status(self) -> None:
         self.activity_status_label.setText(self.activity_translator.status.render())
+
+    def showEvent(self, event) -> None:  # type: ignore[override]
+        super().showEvent(event)
+        if not self._splitter_placed:
+            # Start with the divider as high as the tabs allow: the logs get
+            # all the remaining height.
+            self._splitter_placed = True
+            upper = max(self._upper_area.minimumSizeHint().height(), 1)
+            total = max(self._splitter.height(), upper + 200)
+            self._splitter.setSizes([upper, total - upper])
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         self.log_handler.emitter.message.disconnect(self.log_console.append_message)
@@ -1638,11 +1671,33 @@ class MainWindow(QMainWindow):
     # endregion
 
 
+def _apply_field_style(app: QApplication) -> None:
+    """Give value fields a full visible border and a light shade.
+
+    Qt's Windows 11 style draws input fields with an almost invisible border and
+    only an underline; the classic Windows style draws a full frame. The shade
+    comes from the palette, so native drawing (spin box arrows, combo arrows)
+    is kept.
+    """
+
+    available = {name.lower() for name in QStyleFactory.keys()}
+    if "windowsvista" in available:
+        app.setStyle("windowsvista")
+    elif "fusion" in available:
+        app.setStyle("fusion")
+    palette = app.palette()
+    base = palette.color(QPalette.Base)
+    if base.lightness() > 128:  # light theme: shade fields slightly
+        palette.setColor(QPalette.Base, QColor("#eef3f8"))
+        app.setPalette(palette)
+
+
 def main() -> None:
     import sys
 
     _configure_gui_structlog()
     app = QApplication(sys.argv)
+    _apply_field_style(app)
     icon = _load_app_icon()
     if not icon.isNull():
         app.setWindowIcon(icon)
