@@ -37,6 +37,9 @@ checks below after updating.
 | 2026-11-15 (2nd session) | GOTO → sequence → GOTO to another target (M31, then Caldwell 20) with return to live view after each session | OK, no power cycle needed; GOTO in 19–31 s |
 | 2026-11-15 (2nd session) | Abort from NINA during a 30 s exposure | OK: session ended, DWARF ready after 31 s |
 | 2026-11-15 (2nd session) | In-order delivery, frames left on the DWARF reported | OK (3–8 extra frames while the idle timeout ran) |
+| 2026-11-16 | GOTO without autofocus (new default) | OK in ~18 s (was ~40 s with the 20 s autofocus wait) |
+| 2026-11-16 | Legacy sequencer, three targets with "Slew to target" (Caldwell 19 → custom → Caldwell 20): session ends on slew, GOTO waits for the close, next sequence starts | OK, 5–7 frames per target; 0–1 extra frames with a 30 s idle timeout |
+| 2026-11-16 | Slew + Center (NINA plate solve) | First attempt failed and it was slow; aborted. To be retried |
 | 2026-11-15 | Astro autofocus before calibration | DWARF acknowledges but never starts it; GOTO now continues without it |
 | 2026-11-15 | Folder names created by one-click GOTO (`Caldwell20`, `NGC2281`) | Differ from the app (`C 20`, `NGC 2281`); the app still recognises them |
 
@@ -44,3 +47,5 @@ checks below after updating.
 
 - NINA `Set Tracking: Stopped` and end-of-sequence "Stop tracking" stop the DWARF tracking.
 - Calibration started from dwarfAlp ("Prepare calibration after start").
+- Slew + Center from NINA (repeated GOTOs, no Sync).
+- Frames saved by NINA as 3856×2180 after the ASCOM [x, y] fix.

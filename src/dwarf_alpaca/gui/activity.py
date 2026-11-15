@@ -166,6 +166,10 @@ class ActivityTranslator:
         self._last_size: Optional[tuple[int, int]] = None
         self._continuous = False
         self._stopping_since: Optional[float] = None
+        # A GOTO and the return to live view can wait for the same session
+        # close at once; report that wait and its end only once.
+        self._ready_wait_open = False
+        self._session_closed_at: Optional[float] = None
         self._goto_warning_shown = False
         self._low_battery_warned = False
         self._released_at: Optional[float] = None
@@ -381,6 +385,9 @@ class ActivityTranslator:
 
     def _on_ready_wait(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         self.status.camera = "waiting for the DWARF"
+        if self._ready_wait_open:
+            return []
+        self._ready_wait_open = True
         return [
             ActivityEntry(
                 t,
@@ -391,9 +398,16 @@ class ActivityTranslator:
         ]
 
     def _on_ready_done(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        was_open = self._ready_wait_open
+        self._ready_wait_open = False
+        if not was_open:
+            return []
+        if self._session_closed_at is not None and t - self._session_closed_at <= 2.0:
+            return []  # "DWARF finished closing the session" already said it
         return [ActivityEntry(t, OK, f"DWARF ready after {_seconds(f.get('elapsed_seconds'))} s")]
 
     def _on_ready_timeout(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self._ready_wait_open = False
         self.status.camera = "DWARF busy"
         return [
             ActivityEntry(t, ERROR, f"DWARF still busy after {_seconds(f.get('timeout'))} s")
@@ -412,6 +426,7 @@ class ActivityTranslator:
         if name == "stopped" and self._stopping_since is not None:
             elapsed = t - self._stopping_since
             self._stopping_since = None
+            self._session_closed_at = t
             return [ActivityEntry(t, OK, f"DWARF finished closing the session ({elapsed:.0f} s)")]
         if name in {"running", "idle"}:
             self._stopping_since = None

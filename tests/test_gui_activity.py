@@ -216,3 +216,27 @@ def test_frames_left_warning() -> None:
         "The DWARF took 5 more frame(s) than NINA asked for; they stay on the DWARF"
     ]
     assert "deleted with the session" in deleted[0].text
+
+
+def test_shared_wait_for_session_close_is_reported_once() -> None:
+    tr = ActivityTranslator()
+    feed = []
+    feed += tr.feed(_js("dwarf.camera.astro_capture_state", state_name="stopping"), 0)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_ready_wait_started", state=2, timeout=150), 0)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_ready_wait_started", state=2, timeout=150), 0)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_state", state_name="stopped"), 38)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_ready_wait_finished", elapsed_seconds=38.0), 38)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_ready_wait_finished", elapsed_seconds=38.0), 38)
+
+    assert _texts(feed) == [
+        "Waiting for the DWARF to close the previous session…",
+        "DWARF finished closing the session (38 s)",
+    ]
+
+
+def test_ready_reported_when_close_not_seen() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(_js("dwarf.camera.astro_capture_ready_wait_started", state=2, timeout=150), 0)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_ready_wait_finished", elapsed_seconds=12.0), 12)
+
+    assert _texts(feed)[-1] == "DWARF ready after 12 s"
