@@ -51,7 +51,9 @@ def _stub_one_click_transport(session: DwarfSession) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model", ["dwarf2", "dwarf3", "dwarfmini"])
 async def test_explicit_calibration_uses_shared_v3_command(model: str) -> None:
-    session = DwarfSession(_settings(dwarf_device_model=model))
+    session = DwarfSession(
+        _settings(dwarf_device_model=model, autofocus_before_calibration=True)
+    )
     session.simulation = False
     calls: list[tuple[int, int]] = []
     requests: list[Any] = []
@@ -1150,3 +1152,26 @@ async def test_stop_tracking_stops_one_click_goto() -> None:
 
     assert sent == [protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO]
     assert session._one_click_goto_active is False
+
+
+@pytest.mark.asyncio
+async def test_explicit_calibration_skips_autofocus_by_default() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    calls: list[tuple[int, int]] = []
+
+    async def fake_send_and_check(
+        self, module_id, command_id, request, *, timeout=10.0, expected_responses=None
+    ):
+        calls.append((module_id, command_id))
+
+    session._send_and_check = types.MethodType(fake_send_and_check, session)
+
+    await session.ensure_calibration()
+
+    assert calls == [
+        (
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_CALIBRATION,
+        )
+    ]
