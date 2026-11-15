@@ -807,6 +807,22 @@ async def get_percent_completed():
     return alpaca_response(value=max(0, min(99, int(100 * elapsed / total))))
 
 
+def _to_ascom_order(image: np.ndarray) -> np.ndarray:
+    """Reorder a (rows, columns) image into ASCOM's [x, y] layout.
+
+    ASCOM defines ImageArray as [NumX, NumY]: the first dimension is the
+    width and y changes fastest. Images are decoded as numpy (height, width);
+    sending them unchanged made NINA save a 3856x2180 frame as 2180x3856,
+    mirrored across the diagonal.
+    """
+
+    if image.ndim == 2:
+        return np.ascontiguousarray(image.T)
+    if image.ndim == 3:
+        return np.ascontiguousarray(image.transpose(1, 0, 2))
+    return image
+
+
 @router.get("/imagebytes")
 async def get_image_bytes():
     session = await get_session()
@@ -814,8 +830,9 @@ async def get_image_bytes():
     if image is None:
         raise HTTPException(status_code=400, detail="Image not ready")
     processed_image, type_code = _resolve_image_array(image)
+    processed_image = await asyncio.to_thread(_to_ascom_order, processed_image)
     bytes_data = processed_image.tobytes()
-    height, width = processed_image.shape[:2]
+    width, height = processed_image.shape[:2]
     runtime = session.camera_state
     # The dimensions reported by device-state command 16405 describe the live
     # preview stream (commonly 1920x1080), while frame_width/frame_height
@@ -838,8 +855,8 @@ async def get_image_bytes():
         "TransmissionElementType": type_code,
         "TransmissionElementTypeName": _IMAGE_TYPE_NAMES.get(type_code, "Unknown"),
         "Rank": processed_image.ndim,
-        "Dim1": height,
-        "Dim2": width,
+        "Dim1": width,
+        "Dim2": height,
         "BayerOffsetX": 0,
         "BayerOffsetY": 0,
         "BayerPattern": "RGGB",
@@ -867,11 +884,12 @@ def _encode_imagebytes(
     """Encode an image as an Alpaca ImageBytes payload (binary, no JSON).
 
     The element order and dimensions match the JSON ImageArray response exactly
-    (Dim1 = first numpy axis, last axis fastest), so clients see the same image.
+    (ASCOM [x, y]: Dim1 = width, y fastest), so clients see the same image.
     Data travels in its declared element type: NINA has had trouble when the
     transmission type differs from the image element type.
     """
 
+    processed_image = _to_ascom_order(processed_image)
     data = np.ascontiguousarray(
         processed_image, dtype=processed_image.dtype.newbyteorder("<")
     )
@@ -893,6 +911,7 @@ def _encode_imagebytes(
 
 
 def _encode_image_json(envelope: dict, processed_image: np.ndarray, type_code: int) -> bytes:
+    processed_image = _to_ascom_order(processed_image)
     payload = dict(envelope)
     payload["Type"] = type_code
     payload["Rank"] = processed_image.ndim

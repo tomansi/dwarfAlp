@@ -374,10 +374,12 @@ def test_imagearray_supports_alpaca_imagebytes():
     header = struct.unpack("<iiIIiiiiiii", resp.content[:44])
     assert header[0] == 1 and header[1] == 0 and header[2] == 5
     assert header[4] == 44 and header[5] == 2 and header[6] == 2
-    assert header[7:] == (2, 3, 4, 0)
-    data = np.frombuffer(resp.content[44:], dtype="<i4").reshape(3, 4)
-    assert np.array_equal(data, image)
+    # ASCOM [x, y]: Dim1 is the width (4 columns), Dim2 the height (3 rows).
+    assert header[7:] == (2, 4, 3, 0)
+    data = np.frombuffer(resp.content[44:], dtype="<i4").reshape(4, 3)
+    assert np.array_equal(data, image.T)
 
     json_resp = client.get("/api/v1/camera/0/imagearray")
-    assert json_resp.json()["Value"] == image.tolist()
+    assert json_resp.json()["Dimensions"] == [4, 3]
+    assert json_resp.json()["Value"] == image.T.tolist()
     session.camera_state.image = None
