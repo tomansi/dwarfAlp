@@ -178,7 +178,7 @@ async def test_v3_capture_rejects_failed_deep_sky_mode_confirmation(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_overlapping_capture_is_rejected_without_cancelling_first():
-    session = DwarfSession(Settings(force_simulation=True))
+    session = DwarfSession(Settings(force_simulation=True, continuous_astro_session=False))
     first_task = asyncio.create_task(asyncio.sleep(10))
     session.camera_state.capture_task = first_task
     session.camera_state.capture_phase = CapturePhase.EXPOSING
@@ -803,7 +803,11 @@ async def test_astro_album_download_uses_fits_list(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_camera_start_exposure_simulation_sets_astro_mode():
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True, continuous_astro_session=False, dwarf_device_model="dwarf3"
+        )
+    )
     state = session.camera_state
     state.requested_frame_count = 3
     state.requested_bin = (2, 2)
@@ -846,7 +850,11 @@ async def test_camera_start_exposure_simulation_can_use_photo_mode_for_mini():
 
 @pytest.mark.asyncio
 async def test_camera_start_exposure_accepts_nonfatal_need_goto_warning(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True, continuous_astro_session=False, dwarf_device_model="dwarf3"
+        )
+    )
     session.simulation = False
     state = session.camera_state
     state.requested_frame_count = 2
@@ -1005,7 +1013,7 @@ async def test_start_photo_capture_returns_false_when_mini_fallback_fails(monkey
 
 @pytest.mark.asyncio
 async def test_camera_go_live_after_capture(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True))
+    session = DwarfSession(Settings(force_simulation=True, continuous_astro_session=False))
     session.simulation = False
     session.settings.go_live_before_exposure = False
     state = session.camera_state

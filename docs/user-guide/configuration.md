@@ -105,7 +105,7 @@ the authoritative source.
 | `ftp_timeout_seconds` / `ftp_poll_interval_seconds` | FITS transfer timeout/poll interval | `10` / `1` |
 | `delete_astro_session_after_download` | **Destructive.** After a FITS is downloaded, delete that capture's whole session (raw, stacked, previews) from the DWARF album via `POST /album/delete` | `false` |
 | `delete_astro_session_timeout_seconds` | How long to wait for the album entry before skipping the deletion | `180` |
-| `continuous_astro_session` | Keep one DWARF astronomy session running for consecutive exposures with the same exposure, gain, filter and binning; each StartExposure receives the next raw FITS instead of opening and closing a session (about 70 s on DWARF 3 DSO mode). The session ends on settings change, abort, slew, focuser move, filter change, disconnect or idle timeout | `false` |
+| `continuous_astro_session` | DWARF 3 light frames always use one continuous DWARF session (the DWARF always captures as a stacking session on the telescope); consecutive exposures with the same exposure, gain, filter and binning receive the next raw FITS. The session ends on settings change, abort, slew, tracking off, focuser move, filter change, disconnect or idle timeout. Not shown in the GUI; `false` is only a diagnostic fallback to one session per frame (CLI/env) | `true` |
 | `continuous_astro_max_frames` | Frame count requested from the DWARF for a continuous session | `999` |
 | `continuous_astro_idle_timeout_seconds` | Stop a continuous session after this long without a new exposure request | `120` |
 | `continuous_astro_deliver_all_frames` | Deliver every frame of a continuous session to the client, oldest first, instead of skipping frames that finished before the request | `false` |

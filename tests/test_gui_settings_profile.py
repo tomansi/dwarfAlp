@@ -18,7 +18,7 @@ def test_profile_round_trip(tmp_path: Path) -> None:
         site_latitude=40.4168,
         site_longitude=-3.7038,
         timezone_name="Europe/Madrid",
-        continuous_astro_session=True,
+        continuous_astro_deliver_all_frames=True,
         delete_astro_session_after_download=True,
         delete_astro_session_timeout_seconds=240.0,
     )

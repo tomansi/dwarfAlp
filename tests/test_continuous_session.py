@@ -55,7 +55,6 @@ def _session(**overrides) -> DwarfSession:
     settings = Settings(
         force_simulation=True,
         dwarf_device_model="dwarf3",
-        continuous_astro_session=True,
         **overrides,
     )
     session = DwarfSession(settings)
@@ -66,8 +65,10 @@ def _session(**overrides) -> DwarfSession:
     return session
 
 
-def test_continuous_disabled_by_default() -> None:
-    assert Settings().continuous_astro_session is False
+def test_dwarf3_light_frames_always_use_continuous_session() -> None:
+    session = DwarfSession(Settings(dwarf_device_model="dwarf3"))
+    assert session._continuous_session_wanted(light=True, mini_profile=False)
+    assert not session._continuous_session_wanted(light=False, mini_profile=False)
 
 
 def test_reuse_requires_same_settings_running_device_and_known_folder() -> None:

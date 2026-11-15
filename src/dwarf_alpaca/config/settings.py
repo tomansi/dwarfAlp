@@ -61,7 +61,9 @@ class Settings(BaseSettings):
     # Opt-in: keep one DWARF astronomy session running for a whole NINA sequence
     # and hand each new raw FITS to the next StartExposure, instead of opening and
     # closing a DWARF session per frame (closing takes ~70 s in DSO mode).
-    continuous_astro_session: bool = False
+    # DWARF 3 light frames always use a continuous session; False is only a
+    # diagnostic fallback to the original one-session-per-frame path (CLI/env).
+    continuous_astro_session: bool = True
     continuous_astro_max_frames: int = 999
     continuous_astro_idle_timeout_seconds: float = 120.0
     continuous_astro_deliver_all_frames: bool = False

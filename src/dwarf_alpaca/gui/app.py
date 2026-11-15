@@ -714,13 +714,12 @@ class CaptureOptionsWidget(QGroupBox):
             "border: 1px solid #e0c060; border-radius: 4px; }"
         )
 
-        self.continuous_session_checkbox = QCheckBox(
-            "Continuous DWARF session for NINA sequences"
+        self.continuous_info_label = QLabel(
+            "The DWARF always captures in a continuous session, stacking on the "
+            "telescope. dwarfAlp keeps that session running while exposure, gain, "
+            "filter and binning stay the same, and hands each FITS to NINA."
         )
-        self.continuous_session_checkbox.setToolTip(
-            "Keep one DWARF session running while exposure, gain, filter and binning "
-            "stay the same; each NINA exposure gets the next FITS."
-        )
+        self.continuous_info_label.setWordWrap(True)
         self.continuous_idle_spin = QSpinBox()
         self.continuous_idle_spin.setRange(10, 3600)
         self.continuous_idle_spin.setSuffix(" s")
@@ -755,7 +754,7 @@ class CaptureOptionsWidget(QGroupBox):
         )
 
         form.addRow(self.compatibility_label)
-        form.addRow(self.continuous_session_checkbox)
+        form.addRow(self.continuous_info_label)
         for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
             spin.setFixedWidth(100)
         self.continuous_max_frames_spin.setFixedWidth(90)
@@ -765,19 +764,13 @@ class CaptureOptionsWidget(QGroupBox):
         form.addRow(self.delete_session_checkbox)
         form.addRow("Deletion wait timeout", self.delete_timeout_spin)
         form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
-        self.continuous_session_checkbox.toggled.connect(self._sync_state)
         self.delete_session_checkbox.toggled.connect(self._sync_state)
         self.setLayout(form)
 
     def _sync_state(self) -> None:
-        continuous = self.continuous_session_checkbox.isChecked()
-        self.continuous_idle_spin.setEnabled(continuous)
-        self.continuous_max_frames_spin.setEnabled(continuous)
-        self.deliver_all_checkbox.setEnabled(continuous)
         self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
 
     def populate(self, settings: Settings) -> None:
-        self.continuous_session_checkbox.setChecked(settings.continuous_astro_session)
         self.continuous_idle_spin.setValue(
             int(round(settings.continuous_astro_idle_timeout_seconds))
         )
@@ -795,7 +788,8 @@ class CaptureOptionsWidget(QGroupBox):
     def apply(self, settings: Settings) -> Settings:
         return settings.model_copy(
             update={
-                "continuous_astro_session": self.continuous_session_checkbox.isChecked(),
+                # Always on in the GUI, even if an older profile saved it as false.
+                "continuous_astro_session": True,
                 "continuous_astro_idle_timeout_seconds": float(
                     self.continuous_idle_spin.value()
                 ),
@@ -830,7 +824,6 @@ PROFILE_KEYS: tuple[str, ...] = (
     "site_latitude",
     "site_longitude",
     "timezone_name",
-    "continuous_astro_session",
     "continuous_astro_idle_timeout_seconds",
     "continuous_astro_max_frames",
     "continuous_astro_deliver_all_frames",
