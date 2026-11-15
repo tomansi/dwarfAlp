@@ -71,6 +71,21 @@ def test_dwarf3_light_frames_always_use_continuous_session() -> None:
     assert not session._continuous_session_wanted(light=False, mini_profile=False)
 
 
+@pytest.mark.parametrize("model", ["dwarf2", "dwarfmini"])
+def test_other_models_use_continuous_session_too(model: str) -> None:
+    session = DwarfSession(Settings(dwarf_device_model=model))
+    assert session._continuous_session_wanted(
+        light=True, mini_profile=session._is_dwarf_mini()
+    )
+
+
+def test_mini_photo_mode_keeps_single_frame_path() -> None:
+    session = DwarfSession(
+        Settings(dwarf_device_model="dwarfmini", dwarf_mini_capture_mode="photo")
+    )
+    assert not session._continuous_session_wanted(light=True, mini_profile=True)
+
+
 def test_reuse_requires_same_settings_running_device_and_known_folder() -> None:
     session = _session()
     session._continuous = _ContinuousAstroSession(

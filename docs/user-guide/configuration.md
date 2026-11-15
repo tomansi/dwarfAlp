@@ -16,8 +16,16 @@ stored with
 **File → Save settings profile** (`Ctrl+S`). It writes `dwarf-alpaca.yaml` in the
 folder the app is started from (next to the executable for packaged builds), and
 that file is loaded automatically at start-up. The **Capture** tab holds the
-continuous DWARF session and session-deletion options; they have been tested with
-a DWARF 3 only, not with DWARF 2 or DWARF mini. **File → Save settings profile as…**
+continuous-session and session-deletion options.
+
+> **Disclaimer.** The DWARF 3 changes on this branch (continuous session, full
+> resolution DSO capture, GOTO from NINA, session deletion) were tested only with a
+> DWARF 3 running firmware V1.5.4.1 with DWARFLAB app V3.4.5 (build 794) and
+> N.I.N.A. 3.2.0.9001 (see `docs/development/dwarf3-nina-field-tests.md`). DWARF 2
+> and DWARF mini use the same code paths but have not been tested. DWARFLAB
+> publishes no API, so newer firmware or app versions may change the behaviour.
+> Use at your own risk, keep copies of your data, and report problems with the
+> technical log. **File → Save settings profile as…**
 writes to another file, which can be opened later with **Load settings profile…**.
 
 Precedence, lowest to highest: defaults, `.env` and environment variables, the YAML

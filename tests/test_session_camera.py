@@ -463,7 +463,11 @@ async def test_astro_baseline_does_not_scan_ftp(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_abort_during_configuration_prevents_late_capture_start(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True, continuous_astro_session=False, dwarf_device_model="dwarfmini"
+        )
+    )
     session.simulation = False
     state = session.camera_state
     baseline_entered = asyncio.Event()

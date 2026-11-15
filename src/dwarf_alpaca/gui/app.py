@@ -696,6 +696,18 @@ def _resolve_state_directory(path: Path) -> Path:
     return (base / path).resolve()
 
 
+TESTED_ENVIRONMENT = (
+    "DWARF 3 firmware V1.5.4.1, DWARFLAB app V3.4.5 (build 794), N.I.N.A. 3.2.0.9001"
+)
+CAPTURE_DISCLAIMER_HTML = (
+    "<b>Tested only with DWARF 3</b> (" + TESTED_ENVIRONMENT + "). "
+    "DWARF 2 and DWARF mini use the same capture code but have not been tested. "
+    "DWARFLAB publishes no API and new firmware or app versions may change the "
+    "behaviour. Use at your own risk and keep copies of your data; if something "
+    "fails, please report it with the Technical log."
+)
+
+
 class CaptureOptionsWidget(QGroupBox):
     """Capture options added for DWARF 3 + NINA (continuous session, cleanup)."""
 
@@ -703,11 +715,7 @@ class CaptureOptionsWidget(QGroupBox):
         super().__init__("Capture options", parent)
         form = _compact_form()
 
-        self.compatibility_label = QLabel(
-            "<b>Tested with DWARF 3 only.</b> These options have not been tested "
-            "with DWARF 2 or DWARF mini; keep them off on those models unless you "
-            "are testing them."
-        )
+        self.compatibility_label = QLabel(CAPTURE_DISCLAIMER_HTML)
         self.compatibility_label.setWordWrap(True)
         self.compatibility_label.setStyleSheet(
             "QLabel { background: #fff4ce; color: #5c4400; padding: 8px; "
@@ -999,11 +1007,15 @@ class MainWindow(QMainWindow):
             ),
             3: (
                 "Capture",
-                "<b>Capture tab</b><br/>Options for NINA sequences, tested with DWARF 3 only."
-                "<br/><br/><b>Continuous DWARF session</b>: one DWARF session per sequence"
-                " instead of one per frame (closing a session takes about a minute). It ends"
-                " when exposure, gain, filter or binning change, on abort, slew, focuser"
-                " move, disconnect, or after the idle timeout."
+                "<b>Capture tab</b><br/>Options for NINA sequences. Tested only with"
+                " DWARF 3 (" + TESTED_ENVIRONMENT + "); DWARF 2 and DWARF mini are"
+                " untested."
+                "<br/><br/><b>Continuous DWARF session</b> (always on): the DWARF always"
+                " captures as a stacking session on the telescope; one session serves a"
+                " whole sequence instead of one per frame (closing a session takes about"
+                " a minute). It ends when exposure, gain, filter or binning change, on"
+                " abort, slew, tracking off, focuser move, disconnect, or after the idle"
+                " timeout."
                 "<br/><br/><b>Delete DWARF session after download</b>: removes the session"
                 " folder (raw FITS, stacked image, previews) from the telescope once the"
                 " DWARF has closed it. Keep the app open for a minute or two after the"

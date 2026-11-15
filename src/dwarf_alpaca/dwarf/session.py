@@ -6735,13 +6735,16 @@ class DwarfSession:
     _CONTINUOUS_CLOCK_TOLERANCE_SECONDS = 10.0
 
     def _continuous_session_wanted(self, light: bool, mini_profile: bool) -> bool:
-        # A DWARF 3 astro capture is always a stacking session on the device;
-        # a one-frame session behaves like a continuous one that is closed after
+        # An astro capture is always a stacking session on the device; a
+        # one-frame session behaves like a continuous one that is closed after
         # the first frame, so light frames always use the continuous session.
-        # DWARF 2 / mini (untested) and dark frames keep the single-frame path.
+        # Tested on DWARF 3; DWARF 2 and mini share the code but are untested.
+        # Dark frames and the mini's photo mode keep the single-frame path.
         if not getattr(self.settings, "continuous_astro_session", True):
             return False
-        if not light or mini_profile or not self._uses_v3_protocol():
+        if not light or not self._uses_v3_protocol():
+            return False
+        if mini_profile and self._resolve_mini_capture_mode() != "astro":
             return False
         return int(self.camera_state.requested_frame_count or 1) == 1
 
