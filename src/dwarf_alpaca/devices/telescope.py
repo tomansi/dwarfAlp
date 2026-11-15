@@ -459,6 +459,19 @@ async def slew_to_coordinates_async(
                 status_code=504,
                 detail="Timed out while waiting for DWARF to acknowledge the GoTo command.",
             ) from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            # Leave the driver in a consistent state; otherwise Slewing stays
+            # True and NINA keeps waiting for a slew that never started.
+            state.slewing = False
+            state.right_ascension_rate = 0.0
+            state.declination_rate = 0.0
+            state.target_ra = None
+            state.target_dec = None
+            detail = str(exc) or type(exc).__name__
+            logger.warning("alpaca.telescope.slew_failed", detail=detail)
+            raise HTTPException(status_code=500, detail=f"GoTo failed: {detail}") from exc
 
         state.right_ascension_rate = 0.0
         state.declination_rate = 0.0

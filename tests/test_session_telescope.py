@@ -1064,3 +1064,40 @@ async def test_autofocus_waits_for_completion_once_started() -> None:
 
     assert session._autofocus_completion_event.is_set()
     assert session.get_calibration_status()["status"] == "autofocus completed"
+
+
+@pytest.mark.asyncio
+async def test_new_one_click_goto_releases_previous_pending_request() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    released: list[tuple[int, int]] = []
+
+    def fake_cancel_pending(module_id, command_id, reason=None):
+        released.append((module_id, command_id))
+        return True
+
+    session._ws_client.cancel_pending = fake_cancel_pending  # type: ignore[method-assign]
+    never_answered: asyncio.Future = asyncio.get_running_loop().create_future()
+    old_task = asyncio.create_task(session._monitor_one_click_goto_response(never_answered))
+    session._one_click_response_task = old_task
+    await asyncio.sleep(0)
+
+    begun: list[int] = []
+
+    async def fake_begin_request(module_id, command_id, *_args, **_kwargs):
+        begun.append(command_id)
+        return asyncio.get_running_loop().create_future()
+
+    session._begin_request = fake_begin_request  # type: ignore[method-assign]
+
+    await session._start_one_click_goto_command(20.98, 44.33, "NGC 7000")
+
+    assert old_task.cancelled()
+    assert released == [
+        (
+            protocol_pb2.ModuleId.MODULE_ASTRO,
+            protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+        )
+    ]
+    assert begun == [protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO]
+    session._one_click_response_task.cancel()

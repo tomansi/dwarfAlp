@@ -3266,6 +3266,11 @@ class DwarfSession:
             shooting_mode=2,
             goto_only=False,
         )
+        # The DWARF 3 does not always answer command 11013 once the GOTO has
+        # finished and tracking is running, which left the request pending and
+        # made every later GOTO fail with "already pending". A new GOTO
+        # supersedes the previous one, so drop its outstanding response first.
+        await self._release_previous_one_click_request()
         try:
             response_future = await self._begin_request(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
@@ -3292,6 +3297,24 @@ class DwarfSession:
         self._one_click_response_task = asyncio.create_task(
             self._monitor_one_click_goto_response(response_future)
         )
+
+    async def _release_previous_one_click_request(self) -> None:
+        old_task = self._one_click_response_task
+        self._one_click_response_task = None
+        if old_task is not None and not old_task.done():
+            old_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await old_task
+        released = False
+        with contextlib.suppress(Exception):
+            released = bool(
+                self._ws_client.cancel_pending(
+                    protocol_pb2.ModuleId.MODULE_ASTRO,
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO,
+                )
+            )
+        if released:
+            logger.info("dwarf.telescope.goto.one_click.previous_request_released")
 
     async def _monitor_one_click_goto_response(
         self, response_future: asyncio.Future[Message]
