@@ -480,7 +480,8 @@ async def test_telescope_slew_retries_after_busy(monkeypatch):
     result = await session.telescope_slew_to_coordinates(1.0, 2.0)
 
     assert result == (1.0, 2.0)
-    assert sleep_calls == [0.2]
+    # A busy DWARF gets 2 s after stopping the previous GOTO before the retry.
+    assert sleep_calls == [2.0]
 
     goto_calls = [
         cmd for cmd in actions if cmd[1] == protocol_pb2.DwarfCMD.CMD_ASTRO_START_ONE_CLICK_GOTO_DSO
