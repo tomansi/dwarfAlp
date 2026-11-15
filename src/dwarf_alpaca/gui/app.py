@@ -671,6 +671,12 @@ class CaptureOptionsWidget(QGroupBox):
         self.continuous_max_frames_spin.setToolTip(
             "Frame count requested from the DWARF for a continuous session."
         )
+        self.deliver_all_checkbox = QCheckBox("Deliver every frame in order")
+        self.deliver_all_checkbox.setToolTip(
+            "Hand NINA every frame of the session, oldest first, even when the "
+            "Wi-Fi download is slower than the exposures. Off: NINA always gets "
+            "the newest frame and older ones are skipped (they stay on the DWARF)."
+        )
         self.delete_session_checkbox = QCheckBox(
             "Delete DWARF session after download (removes files from the telescope)"
         )
@@ -691,6 +697,7 @@ class CaptureOptionsWidget(QGroupBox):
         form.addRow(self.continuous_session_checkbox)
         form.addRow("Continuous idle timeout", self.continuous_idle_spin)
         form.addRow("Continuous max frames", self.continuous_max_frames_spin)
+        form.addRow(self.deliver_all_checkbox)
         form.addRow(self.delete_session_checkbox)
         form.addRow("Deletion wait timeout", self.delete_timeout_spin)
         form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
@@ -702,6 +709,7 @@ class CaptureOptionsWidget(QGroupBox):
         continuous = self.continuous_session_checkbox.isChecked()
         self.continuous_idle_spin.setEnabled(continuous)
         self.continuous_max_frames_spin.setEnabled(continuous)
+        self.deliver_all_checkbox.setEnabled(continuous)
         self.delete_timeout_spin.setEnabled(self.delete_session_checkbox.isChecked())
 
     def populate(self, settings: Settings) -> None:
@@ -710,6 +718,7 @@ class CaptureOptionsWidget(QGroupBox):
             int(round(settings.continuous_astro_idle_timeout_seconds))
         )
         self.continuous_max_frames_spin.setValue(int(settings.continuous_astro_max_frames))
+        self.deliver_all_checkbox.setChecked(settings.continuous_astro_deliver_all_frames)
         self.delete_session_checkbox.setChecked(settings.delete_astro_session_after_download)
         self.delete_timeout_spin.setValue(
             int(round(settings.delete_astro_session_timeout_seconds))
@@ -727,6 +736,7 @@ class CaptureOptionsWidget(QGroupBox):
                     self.continuous_idle_spin.value()
                 ),
                 "continuous_astro_max_frames": self.continuous_max_frames_spin.value(),
+                "continuous_astro_deliver_all_frames": self.deliver_all_checkbox.isChecked(),
                 "delete_astro_session_after_download": (
                     self.delete_session_checkbox.isChecked()
                 ),
@@ -759,6 +769,7 @@ PROFILE_KEYS: tuple[str, ...] = (
     "continuous_astro_session",
     "continuous_astro_idle_timeout_seconds",
     "continuous_astro_max_frames",
+    "continuous_astro_deliver_all_frames",
     "delete_astro_session_after_download",
     "delete_astro_session_timeout_seconds",
     "astro_capture_ready_timeout_seconds",

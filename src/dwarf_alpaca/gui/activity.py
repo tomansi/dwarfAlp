@@ -59,6 +59,7 @@ SESSION_END_REASONS = {
     "device_stopped": "the DWARF stopped capturing",
     "frame_timeout": "no new frame arrived in time",
     "shutdown": "the app is closing",
+    "tracking_stopped": "NINA stopped tracking",
 }
 
 CLEANUP_SKIP_REASONS = {
@@ -223,6 +224,7 @@ class ActivityTranslator:
             "alpaca.telescope.connected": self._on_telescope_connected,
             "alpaca.telescope.disconnected": self._on_telescope_disconnected,
             "alpaca.telescope.slew_request": self._on_slew_request,
+            "dwarf.telescope.tracking.stopped": self._on_tracking_stopped,
             "alpaca.telescope.slew_rejected": self._on_slew_rejected,
             "alpaca.telescope.slew_failed": self._on_slew_failed,
             "dwarf.battery.notification": self._on_battery,
@@ -630,6 +632,11 @@ class ActivityTranslator:
     def _on_telescope_disconnected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         self.status.telescope = "disconnected"
         return [ActivityEntry(t, INFO, "Telescope disconnected by NINA")]
+
+    def _on_tracking_stopped(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.telescope = "not tracking"
+        text = "Tracking stopped by NINA: the DWARF no longer follows the target"
+        return [ActivityEntry(t, STOP, text)]
 
     def _on_slew_request(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         return [

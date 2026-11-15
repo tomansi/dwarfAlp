@@ -409,6 +409,7 @@ async def slew_to_coordinates_async(
     state.target_ra = ra
     state.target_dec = dec
     state.slewing = True
+    state.tracking = True  # the DWARF tracks the target after a GOTO
     state.last_command_time = time.time()
     if session.is_simulated:
         state.right_ascension_rate = (ra - state.right_ascension) / 2.0
@@ -511,7 +512,17 @@ async def set_tracking(
     Tracking_query: bool | None = Query(None, alias="Tracking"),
 ):
     tracking = await resolve_parameter(request, "Tracking", bool, Tracking_query)
+    was_tracking = state.tracking
     state.tracking = tracking
+    logger.info("alpaca.telescope.tracking_set", tracking=tracking)
+    if not tracking and was_tracking:
+        # NINA's "Set Tracking: Stopped" and end-of-sequence "Stop tracking"
+        # must really stop the DWARF following the target.
+        session = await get_session()
+        try:
+            await session.telescope_stop_tracking()
+        except Exception as exc:
+            logger.warning("alpaca.telescope.tracking_stop_failed", error=str(exc))
     return alpaca_response()
 
 

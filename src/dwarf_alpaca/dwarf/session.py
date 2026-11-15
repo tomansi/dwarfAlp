@@ -3483,6 +3483,33 @@ class DwarfSession:
             with contextlib.suppress(Exception):
                 await self.telescope_stop_axis(axis, ensure_ws=False)
 
+    async def telescope_stop_tracking(self) -> None:
+        """Stop the DWARF following its target (NINA "Tracking off").
+
+        The DWARF tracks after a one-click GOTO until told otherwise; ending
+        the capture session and the one-click GOTO is what the app does when
+        an observation ends.
+        """
+
+        if self.simulation:
+            return
+        if self._continuous is not None:
+            await self._end_continuous_session(reason="tracking_stopped")
+        await self._ensure_ws()
+        await self._release_previous_one_click_request()
+        self._one_click_goto_active = False
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO,
+                astro_pb2.ReqStopOneClickGoto(),
+            )
+        except (DwarfCommandError, asyncio.TimeoutError) as exc:
+            # Nothing was being tracked: the DWARF may refuse the stop.
+            logger.info("dwarf.telescope.tracking.stop_ignored", error=str(exc))
+            return
+        logger.info("dwarf.telescope.tracking.stopped")
+
     # --- Camera --------------------------------------------------------------------
 
     async def camera_connect(self) -> None:
@@ -6787,6 +6814,7 @@ class DwarfSession:
         requested_at: float,
         freshness_tolerance: float = 2.0,
         clock_tolerance: float = 10.0,
+        deliver_all: bool = False,
     ) -> tuple[FtpPhotoEntry | None, list[FtpPhotoEntry]]:
         """Pick the frame to hand to the current exposure request.
 
@@ -6797,6 +6825,10 @@ class DwarfSession:
         client asked for this exposure are returned as ``skipped`` so the client
         never receives an image older than its request; the oldest remaining
         frame is chosen so frames are delivered in order.
+
+        With ``deliver_all`` nothing is skipped: the oldest frame not yet
+        delivered is returned, even if it finished before the request, so the
+        client receives every frame of the session in order.
         """
 
         # One candidate per exposure: if both the original and the ``failed_``
@@ -6812,6 +6844,8 @@ class DwarfSession:
             if current is None or DwarfSession._is_failed_stack_frame(entry):
                 by_key[key] = entry
         candidates = sorted(by_key.values(), key=lambda item: (item.timestamp, item.path))
+        if deliver_all:
+            return (candidates[0] if candidates else None), []
         skipped = [
             entry for entry in candidates if entry.timestamp < requested_at - freshness_tolerance
         ]
@@ -6890,6 +6924,9 @@ class DwarfSession:
                 requested_at=requested_at,
                 freshness_tolerance=self._CONTINUOUS_FRESHNESS_TOLERANCE_SECONDS,
                 clock_tolerance=self._CONTINUOUS_CLOCK_TOLERANCE_SECONDS,
+                deliver_all=bool(
+                    getattr(self.settings, "continuous_astro_deliver_all_frames", False)
+                ),
             )
             for entry in skipped:
                 cont.delivered.add(self._continuous_frame_key(entry))

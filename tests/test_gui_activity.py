@@ -191,3 +191,15 @@ def test_server_stop_resets_status_and_explains() -> None:
     assert "server stopped" in stopped[0].text
     assert tr.status.render() == "DWARF 3 · not connected"
     assert tr.server_stopped(7.0) == []  # reported once
+
+
+def test_tracking_stopped_message() -> None:
+    tr = ActivityTranslator()
+    entries = tr.feed(_js("dwarf.telescope.tracking.stopped"), 0.0)
+    entries += tr.feed(
+        _js("dwarf.camera.continuous_session_ended", reason="tracking_stopped", frames_delivered=3),
+        0.1,
+    )
+    assert entries[0].kind == STOP
+    assert "Tracking stopped by NINA" in entries[0].text
+    assert "NINA stopped tracking" in entries[1].text

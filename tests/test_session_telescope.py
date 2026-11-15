@@ -1126,3 +1126,25 @@ async def test_immediate_one_click_rejection_is_raised_for_retry() -> None:
     assert session._goto_pending is False
     # Still marked active so that an abort sends "stop one-click GOTO" first.
     assert session._one_click_goto_active is True
+
+
+@pytest.mark.asyncio
+async def test_stop_tracking_stops_one_click_goto() -> None:
+    session = DwarfSession(_settings(dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._one_click_goto_active = True
+    sent: list[int] = []
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    async def fake_send_and_check(module_id, command_id, request, **_kwargs):
+        sent.append(command_id)
+
+    session._ensure_ws = noop  # type: ignore[method-assign]
+    session._send_and_check = fake_send_and_check  # type: ignore[method-assign]
+
+    await session.telescope_stop_tracking()
+
+    assert sent == [protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO]
+    assert session._one_click_goto_active is False

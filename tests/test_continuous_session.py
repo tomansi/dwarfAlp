@@ -236,3 +236,17 @@ def test_rename_in_progress_yields_one_candidate() -> None:
     assert DwarfSession._continuous_frame_key(entries[0]) == DwarfSession._continuous_frame_key(
         entries[1]
     )
+
+
+def test_deliver_all_returns_oldest_frame_without_skipping() -> None:
+    entries = [_entry("a.fits", 1000.0), _entry("b.fits", 1030.0)]
+    chosen, skipped = DwarfSession._select_continuous_frame(
+        entries,
+        delivered=set(),
+        duration=30.0,
+        valid_after=960.0,
+        requested_at=1100.0,
+        deliver_all=True,
+    )
+    assert skipped == []
+    assert chosen is entries[0]

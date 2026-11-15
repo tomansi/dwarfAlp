@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     continuous_astro_session: bool = False
     continuous_astro_max_frames: int = 999
     continuous_astro_idle_timeout_seconds: float = 120.0
+    continuous_astro_deliver_all_frames: bool = False
     # How long a new capture waits for the DWARF to finish closing the previous
     # session (DWARF 3 DSO mode needs about 70 s).
     astro_capture_ready_timeout_seconds: float = 150.0
