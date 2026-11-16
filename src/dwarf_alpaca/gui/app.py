@@ -263,11 +263,6 @@ class SettingsOverridesWidget(QGroupBox):
         self.force_sim_checkbox = QCheckBox("Force simulation mode")
         self.skip_preflight_checkbox = QCheckBox("Skip connectivity preflight")
         self.calibrate_after_start_checkbox = QCheckBox("Prepare calibration after start")
-        self.autofocus_checkbox = QCheckBox("Autofocus before GOTO and calibration")
-        self.autofocus_checkbox.setToolTip(
-            "DWARF 3 firmware V1.5.4.1 accepts the command but never starts autofocus; "
-            "each GOTO then waits 20 s for nothing. Focus in the DWARFLAB app instead."
-        )
         self.site_latitude_edit = QLineEdit()
         self.site_latitude_edit.setPlaceholderText("e.g. 48.1372")
         self.site_longitude_edit = QLineEdit()
@@ -323,7 +318,6 @@ class SettingsOverridesWidget(QGroupBox):
                 self.calibrate_after_start_checkbox,
             )
         )
-        form.addRow(self.autofocus_checkbox)
         form.addRow(
             "Site",
             _inline_row(
@@ -360,7 +354,6 @@ class SettingsOverridesWidget(QGroupBox):
         self.force_sim_checkbox.setChecked(settings.force_simulation)
         self.skip_preflight_checkbox.setChecked(False)
         self.calibrate_after_start_checkbox.setChecked(settings.calibrate_after_server_start)
-        self.autofocus_checkbox.setChecked(settings.autofocus_before_calibration)
         self.set_site_location(settings.site_latitude, settings.site_longitude)
         self._sync_calibration_availability()
         self.preflight_timeout_spin.setValue(180)
@@ -394,7 +387,6 @@ class SettingsOverridesWidget(QGroupBox):
                 "calibrate_after_server_start": (
                     self.calibrate_after_start_checkbox.isChecked()
                 ),
-                "autofocus_before_calibration": self.autofocus_checkbox.isChecked(),
                 "site_latitude": self._parse_optional_coordinate(
                     self.site_latitude_edit.text(), "Latitude", -90.0, 90.0
                 ),
@@ -771,6 +763,13 @@ class CaptureOptionsWidget(QGroupBox):
             "How long a new capture waits for the DWARF to close the previous session."
         )
 
+        self.autofocus_checkbox = QCheckBox("Autofocus before GOTO and calibration")
+        self.autofocus_checkbox.setToolTip(
+            "DWARF 3 firmware V1.5.4.1 accepts the command but never starts autofocus; "
+            "each GOTO then waits 20 s for nothing. Focus in the DWARFLAB app instead."
+        )
+        self.autofocus_checkbox.setContentsMargins(24, 0, 0, 0)
+
         for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
             spin.setFixedWidth(100)
         self.continuous_max_frames_spin.setFixedWidth(90)
@@ -778,7 +777,9 @@ class CaptureOptionsWidget(QGroupBox):
             "Continuous idle timeout",
             _inline_row(self.continuous_idle_spin, "Max frames", self.continuous_max_frames_spin),
         )
-        form.addRow("Wait for DWARF ready", self.ready_timeout_spin)
+        form.addRow(
+            "Wait for DWARF ready", _inline_row(self.ready_timeout_spin, self.autofocus_checkbox)
+        )
         form.addRow(
             _inline_row(self.delete_session_checkbox, "Deletion wait", self.delete_timeout_spin)
         )
@@ -804,6 +805,7 @@ class CaptureOptionsWidget(QGroupBox):
         self.ready_timeout_spin.setValue(
             int(round(settings.astro_capture_ready_timeout_seconds))
         )
+        self.autofocus_checkbox.setChecked(settings.autofocus_before_calibration)
         self._sync_state()
 
     def apply(self, settings: Settings) -> Settings:
@@ -824,6 +826,7 @@ class CaptureOptionsWidget(QGroupBox):
                 "astro_capture_ready_timeout_seconds": float(
                     self.ready_timeout_spin.value()
                 ),
+                "autofocus_before_calibration": self.autofocus_checkbox.isChecked(),
             }
         )
 
@@ -1015,11 +1018,7 @@ class MainWindow(QMainWindow):
                 "Settings",
                 "<b>Settings tab</b><br/>Override server host/port, DWARF IP, and websocket client ID."
                 " Choose the correct DWARF model (DWARF 3, DWARF 2, or DWARF mini)"
-                " and enter or fetch observer coordinates before optional post-start calibration."
-                "<br/><br/><b>Autofocus before GOTO and calibration</b>: off by default."
-                " The tested DWARF 3 firmware accepts the command but never starts"
-                " autofocus, so each GOTO waited 20 s for nothing. Focus in the DWARFLAB"
-                " app before connecting NINA.",
+                " and enter or fetch observer coordinates before optional post-start calibration.",
             ),
             3: (
                 "Capture",
@@ -1039,7 +1038,11 @@ class MainWindow(QMainWindow):
                 " DWARF has closed it. Keep the app open for a minute or two after the"
                 " sequence so the deletion can finish."
                 "<br/><br/><b>Wait for DWARF ready</b>: how long a new capture waits for"
-                " the previous session to close.",
+                " the previous session to close."
+                "<br/><br/><b>Autofocus before GOTO and calibration</b>: off by default."
+                " The tested DWARF 3 firmware accepts the command but never starts"
+                " autofocus, so each GOTO waited 20 s for nothing. Focus in the DWARFLAB"
+                " app before connecting NINA.",
             ),
         }
         self._refresh_state()
