@@ -42,6 +42,7 @@ checks below after updating.
 | 2026-11-16 | Frames saved by NINA after the ASCOM [x, y] fix | OK: 3856×2180, same orientation as the DWARF (before: 2180×3856, transposed) |
 | 2026-11-16 | Stop pressed in the middle of a NINA sequence | OK: session ended, the next sequence started normally |
 | 2026-11-17 | DWARF 3 in EQ mode (polar aligned in the app): GOTO (Tr 37, M44), tracking, 30 s and 120 s sequences | OK: GOTO in 24–35 s, frames delivered in order, session closes in 51–57 s |
+| 2026-11-17 | DWARF 2: connection, model detection and basic moves from NINA | OK; capture and GOTO not tested (clouds) |
 | 2026-11-16 | Slew + Center (NINA plate solve) | First attempt failed and it was slow; aborted. To be retried |
 | 2026-11-15 | Astro autofocus before calibration | DWARF acknowledges but never starts it; GOTO now continues without it |
 | 2026-11-15 | Folder names created by one-click GOTO (`Caldwell20`, `NGC2281`) | Differ from the app (`C 20`, `NGC 2281`); the app still recognises them |
