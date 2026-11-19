@@ -12,8 +12,8 @@ from typing import Optional
 import httpx
 import structlog
 import yaml
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette, QTextCursor
+from PySide6.QtCore import QLockFile, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette, QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSpinBox,
+    QSplashScreen,
     QSplitter,
     QStyleFactory,
     QTabWidget,
@@ -63,6 +64,7 @@ logger = logging.getLogger(__name__)
 
 
 APP_ICON_PATH = Path(__file__).resolve().parents[3] / "images" / "dwarfalplogo.ico"
+SPLASH_PATH = APP_ICON_PATH.with_name("splash.png")
 
 
 def _configure_gui_structlog() -> None:
@@ -1789,6 +1791,35 @@ QPushButton:disabled {
 """
 
 
+def _close_bootloader_splash() -> None:
+    """Close the PyInstaller splash shown while the .exe unpacks."""
+
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+    except Exception:  # pragma: no cover - only in the frozen build
+        pass
+
+
+def _acquire_single_instance_lock() -> QLockFile | None:
+    """Return the lock, or None if another copy of the program is running.
+
+    On a slow computer the program takes a while to appear, and a second
+    double-click started a second copy.
+    """
+
+    lock_dir = _resolve_state_directory(Path("var"))
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock = QLockFile(str(lock_dir / "dwarf-alpaca-gui.lock"))
+    lock.setStaleLockTime(0)
+    if lock.tryLock(100):
+        return lock
+    return None
+
+
 def main() -> None:
     import sys
 
@@ -1798,9 +1829,32 @@ def main() -> None:
     icon = _load_app_icon()
     if not icon.isNull():
         app.setWindowIcon(icon)
+
+    lock = _acquire_single_instance_lock()
+    if lock is None:
+        _close_bootloader_splash()
+        QMessageBox.information(
+            None,
+            "DWARF Alpaca Control Center",
+            "DWARF Alpaca Control Center is already running.",
+        )
+        sys.exit(0)
+
+    splash: QSplashScreen | None = None
+    if not getattr(sys, "frozen", False) and SPLASH_PATH.exists():
+        # The frozen .exe shows the PyInstaller splash instead.
+        splash = QSplashScreen(QPixmap(str(SPLASH_PATH)))
+        splash.show()
+        app.processEvents()
+
     window = MainWindow(app_icon=icon if not icon.isNull() else None)
     window.show()
-    sys.exit(app.exec())
+    if splash is not None:
+        splash.finish(window)
+    _close_bootloader_splash()
+    exit_code = app.exec()
+    lock.unlock()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
