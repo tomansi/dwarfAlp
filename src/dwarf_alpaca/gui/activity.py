@@ -181,6 +181,7 @@ class ActivityTranslator:
         # close at once; report that wait and its end only once.
         self._ready_wait_open = False
         self._session_closed_at: Optional[float] = None
+        self._last_exposure_request: Optional[tuple[float, Optional[float]]] = None
         self._goto_warning_shown = False
         self._low_battery_warned = False
         self._released_at: Optional[float] = None
@@ -205,6 +206,7 @@ class ActivityTranslator:
             "dwarf.camera.astro_capture_ready_wait_finished": self._on_ready_done,
             "dwarf.camera.astro_capture_ready_wait_timeout": self._on_ready_timeout,
             "dwarf.camera.deferred_start_failed": self._on_start_failed,
+            "dwarf.camera.v3_astro_quick_set_rejected": self._on_quick_set_rejected,
             "dwarf.camera.astro_capture_state": self._on_capture_state,
             "dwarf.camera.astro_capture_goto_missing": self._on_goto_missing,
             "dwarf.camera.dark_library_missing_continuing": self._on_no_darks,
@@ -376,6 +378,11 @@ class ActivityTranslator:
         return [ActivityEntry(t, INFO, f"Filter: {name}")]
 
     def _on_exposure_request(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        try:
+            requested = float(f.get("resolved_duration"))
+        except (TypeError, ValueError):
+            requested = None
+        self._last_exposure_request = (t, requested)
         duration = f.get("resolved_duration")
         light = f.get("resolved_light", True)
         kind = "light" if light in (True, "True", "true", None) else "dark"
@@ -428,6 +435,18 @@ class ActivityTranslator:
         self.status.camera = "DWARF busy"
         return [
             ActivityEntry(t, ERROR, f"DWARF still busy after {_seconds(f.get('timeout'))} s")
+        ]
+
+    def _on_quick_set_rejected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.camera = "failed"
+        return [
+            ActivityEntry(
+                t,
+                ERROR,
+                f"The DWARF rejected {_seconds(f.get('exposure'))} s at gain {f.get('gain')} "
+                f"(code {f.get('code')}); the exposure did not start",
+                group="quick_set_rejected",
+            )
         ]
 
     def _on_start_failed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
@@ -532,11 +551,29 @@ class ActivityTranslator:
         reason = SESSION_END_REASONS.get(str(f.get("reason")), str(f.get("reason")))
         delivered = f.get("frames_delivered", 0)
         noun = "frame" if delivered == 1 else "frames"
-        return [
+        entries = [
             ActivityEntry(
                 t, STOP, f"Continuous session ended: {reason} ({delivered} {noun} delivered)"
             )
         ]
+        request = self._last_exposure_request
+        if f.get("reason") == "abort" and request is not None and request[1] is not None:
+            waited = t - request[0]
+            # Sky test 2026-11-20: NINA aborted 90 s after asking for a 30 s
+            # frame, i.e. at its 60 s camera timeout, while the DWARF was
+            # still closing the previous session and starting the next.
+            if waited >= request[1] + 55.0:
+                entries.append(
+                    ActivityEntry(
+                        t,
+                        WARN,
+                        f"NINA stopped waiting {_seconds(waited)} s after asking for the frame "
+                        "(its camera timeout). The first frame of a DWARF session can take "
+                        "1–2 minutes more than the exposure: raise Timeout in NINA's camera "
+                        "options to 180 s",
+                    )
+                )
+        return entries
 
     def _on_cleanup_deleted(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         if f.get("still_present"):

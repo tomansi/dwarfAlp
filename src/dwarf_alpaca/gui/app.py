@@ -700,7 +700,7 @@ def _resolve_state_directory(path: Path) -> Path:
 
 
 TESTED_ENVIRONMENT = (
-    "DWARF 3 firmware V1.5.4.1, DWARFLAB app V3.4.5 (build 794), N.I.N.A. 3.2.0.9001"
+    "DWARF 3 firmware V1.5.4.1 and V1.5.5.1, DWARFLAB app V3.4.5 (build 794), N.I.N.A. 3.2.0.9001"
 )
 CAPTURE_DISCLAIMER_HTML = (
     "<b>Tested only with DWARF 3</b> (" + TESTED_ENVIRONMENT + "). "

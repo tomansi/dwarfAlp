@@ -20,12 +20,18 @@ continuous-session and session-deletion options.
 
 > **Disclaimer.** The DWARF 3 changes on this branch (continuous session, full
 > resolution DSO capture, GOTO from NINA, session deletion) were tested only with a
-> DWARF 3 running firmware V1.5.4.1 with DWARFLAB app V3.4.5 (build 794) and
-> N.I.N.A. 3.2.0.9001 (see `docs/development/dwarf3-nina-field-tests.md`). DWARF 2
+> DWARF 3 running firmware V1.5.4.1 and V1.5.5.1 with DWARFLAB app V3.4.5 (build 794)
+> and N.I.N.A. 3.2.0.9001 (see `docs/development/dwarf3-nina-field-tests.md`). DWARF 2
 > and DWARF mini use the same code paths but have not been tested. DWARFLAB
 > publishes no API, so newer firmware or app versions may change the behaviour.
 > Use at your own risk, keep copies of your data, and report problems with the
-> technical log. **File → Save settings profile as…**
+> technical log.
+>
+> **NINA settings for the DWARF 3.** Options → Equipment → Telescope: focal length
+> 150 mm, focal ratio 4.3 (ASTAP otherwise solves for a field four times too large).
+> Camera timeout: 180 s. The first frame of a DWARF session arrives 1–2 minutes after
+> the exposure ends (the DWARF closes the previous session and starts a new one);
+> with NINA's default 60 s timeout NINA aborts and asks again. **File → Save settings profile as…**
 writes to another file, which can be opened later with **Load settings profile…**.
 
 Precedence, lowest to highest: defaults, `.env` and environment variables, the YAML

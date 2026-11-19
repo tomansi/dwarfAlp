@@ -52,6 +52,9 @@ checks below after updating.
 | 2026-11-19 (2nd run) | "Prepare calibration after start", GOTO M31 (calibrates, 64 s) → M81 → M31 → M81 with the one-click GOTO fix | OK: every GOTO moved, 23–30 s after the first |
 | 2026-11-19 (2nd run) | Slew + Center to M81 | GOTO OK; ASTAP plate solve failed ("Large FOV"): NINA/ASTAP settings to be checked |
 | 2026-11-19 (daytime) | Firmware updated to V1.5.5.1 (app unchanged, V3.4.5): connection, NINA camera/mount, GOTO request | OK; the GOTO failed with -11504 (calibration failed), as expected in daylight. Night tests pending |
+| 2026-11-20 | NINA test plan (advanced sequencer) on firmware V1.5.5.1, many clouds | GOTO to M31 failed (calibration -11504, clouds). M81: calibration and GOTO OK; frames 15 s OK; tracking off OK; GOTO after tracking off OK; Stop OK |
+| 2026-11-20 | 10 s exposures (gain 60 and 90) on V1.5.5.1 | Failed: quick set 11041 answered -3; V1.5.5.1 only accepts its preset pairs (V1.5.4.1 accepted any). Fixed: nearest preset, then live exposure/gain. Slew + Center failed for the same reason |
+| 2026-11-20 | 30 s frames after Stop | NINA aborted three times at its 60 s camera timeout (first frame of a session ~90 s). Raise NINA camera timeout to 180 s |
 | 2026-11-16 | Slew + Center (NINA plate solve) | First attempt failed and it was slow; aborted. To be retried |
 | 2026-11-15 | Astro autofocus before calibration | DWARF acknowledges but never starts it; GOTO now continues without it |
 | 2026-11-15 | Folder names created by one-click GOTO (`Caldwell20`, `NGC2281`) | Differ from the app (`C 20`, `NGC 2281`); the app still recognises them |

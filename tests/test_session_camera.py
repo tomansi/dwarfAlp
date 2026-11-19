@@ -1685,3 +1685,51 @@ async def test_abort_keeps_exposure_started_while_the_dwarf_closes(monkeypatch):
 
     assert state.capture_id == "new-exposure"
     assert state.capture_phase == CapturePhase.CONFIGURING
+
+
+@pytest.mark.asyncio
+async def test_dwarf3_quick_set_rejected_pair_falls_back_to_nearest_preset(monkeypatch):
+    # Firmware V1.5.5.1 answers -3 to an exposure/gain pair that is not one of
+    # its presets (sky test 2026-11-20: 10 s / gain 60 refused).
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._params_config = {}
+    session.camera_state.duration = 10.0
+    session.camera_state.requested_gain = 60
+    session._v3_astro_param_catalog = {
+        "cameraParams": [{"cameraId": 0, "specialParams": {
+            "exp": {"paramId": 0x201000000000001, "values": [{"name": "10", "value": 150}]},
+            "gain": {"paramId": 0x201000000000002, "values": [60]},
+        }}]
+    }
+    quick_sets: list[str] = []
+    events: list[int] = []
+
+    async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
+            response = astro_pb2.ResGetQuickSetList()
+            for info in ("0|0|10|120|0|null", "0|0|15|60|0|null"):
+                response.quick_set_list.add().info_id = info
+            return response
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
+            quick_sets.append(request.info_id)
+            events.append(command)
+            code = protocol_pb2.OK if request.info_id == "0|0|10|120|0|null" else -3
+            return astro_pb2.ResSetQuickSet(code=code, info_id=request.info_id)
+        raise AssertionError(f"unexpected command {command}")
+
+    async def fake_send_and_check(module, command, request, **_kwargs):
+        events.append(command)
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session._ensure_exposure_settings(10.0)
+    await session._ensure_gain_settings()
+    await session._configure_astro_capture(frames=1, binning=(1, 1))
+
+    assert quick_sets == ["0|0|10|60|0|null", "0|0|10|120|0|null"]
+    # The live exposure and gain writes come after the preset, so the
+    # capture uses 10 s at gain 60 as NINA asked.
+    last_quick_set = len(events) - 1 - events[::-1].index(11041)
+    assert events[last_quick_set + 1 : last_quick_set + 3] == [16700, 16701]

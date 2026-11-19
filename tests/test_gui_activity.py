@@ -267,3 +267,35 @@ def test_goto_failure_codes_are_explained() -> None:
         "GOTO failed: the DWARF could not calibrate (plate solving found no stars: "
         "daylight, clouds or something in the way)"
     ]
+
+
+def test_rejected_exposure_settings_are_reported() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(
+        _js("dwarf.camera.v3_astro_quick_set_rejected", info_id="0|0|10|60|0|null", code=-3,
+            exposure=10.0, gain=60),
+        0,
+    )
+    assert _texts(feed) == [
+        "The DWARF rejected 10 s at gain 60 (code -3); the exposure did not start"
+    ]
+
+
+def test_abort_at_nina_camera_timeout_explains_the_timeout() -> None:
+    tr = ActivityTranslator()
+    tr.feed(_js("alpaca.camera.start_exposure_request", resolved_duration=30.0, resolved_light=True), 0)
+    feed = tr.feed(
+        _js("dwarf.camera.continuous_session_ended", reason="abort", frames_delivered=0), 90
+    )
+    texts = _texts(feed)
+    assert texts[0] == "Continuous session ended: exposure aborted (0 frames delivered)"
+    assert texts[1].startswith("NINA stopped waiting 90 s after asking for the frame")
+
+
+def test_user_abort_has_no_timeout_hint() -> None:
+    tr = ActivityTranslator()
+    tr.feed(_js("alpaca.camera.start_exposure_request", resolved_duration=30.0, resolved_light=True), 0)
+    feed = tr.feed(
+        _js("dwarf.camera.continuous_session_ended", reason="abort", frames_delivered=0), 22
+    )
+    assert len(feed) == 1

@@ -4140,6 +4140,13 @@ class DwarfSession:
         )
         return presets
 
+    async def _nearest_v3_astro_preset(self, duration: float, gain: int) -> V3AstroPreset:
+        presets = await self._get_v3_astro_presets()
+        return min(
+            presets,
+            key=lambda preset: (abs(preset.exposure_s - duration), abs(preset.gain - gain)),
+        )
+
     async def _select_v3_astro_preset(self, duration: float) -> V3AstroPreset:
         presets = await self._get_v3_astro_presets()
         camera = self.profile.camera
@@ -4400,7 +4407,39 @@ class DwarfSession:
             timeout=8.0,
         )
         code = int(getattr(response, "code", protocol_pb2.OK))
+        if code != protocol_pb2.OK and self._v3_live_parameters_supported:
+            # Firmware V1.5.5.1 (DWARF 3) answers -3 when the exposure/gain
+            # pair is not one of its own astro presets (10 s / gain 60 was
+            # refused; 15 s / 60 and 30 s / 60 were accepted). V1.5.4.1
+            # accepted any pair. Load the nearest preset unchanged; the live
+            # exposure and gain writes applied after 11041 then set the
+            # values NINA asked for.
+            preset = await self._nearest_v3_astro_preset(duration, int(gain))
+            logger.warning(
+                "dwarf.camera.v3_astro_quick_set_preset_fallback",
+                rejected_info_id=request.info_id,
+                code=code,
+                preset_info_id="|".join(preset.pipe_parts),
+                exposure=duration,
+                gain=gain,
+            )
+            request = astro_pb2.ReqSetQuickSet(info_id="|".join(preset.pipe_parts))
+            response = await self._send_request(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET,
+                request,
+                astro_pb2.ResSetQuickSet,
+                timeout=8.0,
+            )
+            code = int(getattr(response, "code", protocol_pb2.OK))
         if code != protocol_pb2.OK:
+            logger.warning(
+                "dwarf.camera.v3_astro_quick_set_rejected",
+                info_id=request.info_id,
+                code=code,
+                exposure=duration,
+                gain=gain,
+            )
             raise CaptureConfigurationError(
                 f"{self.profile.display_name} rejected astronomy quick-set parameters "
                 f"with code {code}"
