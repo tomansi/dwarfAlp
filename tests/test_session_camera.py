@@ -114,10 +114,10 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
         if command_id == 16402:
             response = ResSwitchShootingMode()
             response.code = protocol_pb2.OK
-            response.shooting_mode_id = 8
+            response.shooting_mode_id = 2
             return response
         if command_id == 16404:
-            response = ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+            response = ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
             return response
         if command_id == 16403:
             response = ResSwitchShootingTech()
@@ -135,7 +135,7 @@ async def test_v3_capture_enters_deep_sky_mode_before_opening_camera(monkeypatch
     await session._enter_v3_astro_mode()
 
     assert [command for _, command, _ in calls] == [16402, 16404, 16403, 10050]
-    assert calls[0][2].mode == 8
+    assert calls[0][2].mode == 2
     assert calls[1][2].client_param.encode_type == 1
     assert calls[2][2].tech == 2
     assert calls[3][2].level == 1
@@ -148,7 +148,7 @@ async def test_v3_capture_accepts_legacy_mode_two_confirmation(monkeypatch):
 
     async def fake_send_request(_module_id, command_id, _request, _response_cls, **_kwargs):
         if command_id == 16402:
-            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=8)
+            return ResSwitchShootingMode(code=protocol_pb2.OK, shooting_mode_id=2)
         if command_id == 16404:
             return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
         return ResSwitchShootingTech(code=protocol_pb2.OK, shooting_tech_id=2)
@@ -178,7 +178,7 @@ async def test_v3_capture_rejects_failed_deep_sky_mode_confirmation(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_overlapping_capture_is_rejected_without_cancelling_first():
-    session = DwarfSession(Settings(force_simulation=True))
+    session = DwarfSession(Settings(force_simulation=True, continuous_astro_session=False))
     first_task = asyncio.create_task(asyncio.sleep(10))
     session.camera_state.capture_task = first_task
     session.camera_state.capture_phase = CapturePhase.EXPOSING
@@ -463,7 +463,11 @@ async def test_astro_baseline_does_not_scan_ftp(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_abort_during_configuration_prevents_late_capture_start(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True, continuous_astro_session=False, dwarf_device_model="dwarfmini"
+        )
+    )
     session.simulation = False
     state = session.camera_state
     baseline_entered = asyncio.Event()
@@ -803,7 +807,11 @@ async def test_astro_album_download_uses_fits_list(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_camera_start_exposure_simulation_sets_astro_mode():
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True, continuous_astro_session=False, dwarf_device_model="dwarf3"
+        )
+    )
     state = session.camera_state
     state.requested_frame_count = 3
     state.requested_bin = (2, 2)
@@ -846,7 +854,11 @@ async def test_camera_start_exposure_simulation_can_use_photo_mode_for_mini():
 
 @pytest.mark.asyncio
 async def test_camera_start_exposure_accepts_nonfatal_need_goto_warning(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session = DwarfSession(
+        Settings(
+            force_simulation=True, continuous_astro_session=False, dwarf_device_model="dwarf3"
+        )
+    )
     session.simulation = False
     state = session.camera_state
     state.requested_frame_count = 2
@@ -1005,7 +1017,7 @@ async def test_start_photo_capture_returns_false_when_mini_fallback_fails(monkey
 
 @pytest.mark.asyncio
 async def test_camera_go_live_after_capture(monkeypatch):
-    session = DwarfSession(Settings(force_simulation=True))
+    session = DwarfSession(Settings(force_simulation=True, continuous_astro_session=False))
     session.simulation = False
     session.settings.go_live_before_exposure = False
     state = session.camera_state
@@ -1333,7 +1345,7 @@ async def test_camera_connect_uses_enter_camera_and_preview_quality_for_all_mode
 
     async def fake_send_request(module_id, command_id, request, _response_cls, **_kwargs):
         captured.append((module_id, command_id, request))
-        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=8)
+        return ResEnterCamera(code=protocol_pb2.OK, shooting_mode_id=2)
 
     async def fake_send_and_check(module_id, command_id, request, **_kwargs):
         captured.append((module_id, command_id, request))
@@ -1652,3 +1664,72 @@ async def test_fetch_falls_back_to_album_after_ftp_failure(monkeypatch):
 
     assert album_attempted is True
     assert state.capture_phase == CapturePhase.READY
+
+
+@pytest.mark.asyncio
+async def test_abort_keeps_exposure_started_while_the_dwarf_closes(monkeypatch):
+    # Sky test 2026-11-19: NINA sent StartExposure while AbortExposure was
+    # still waiting for the DWARF to close the session.
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    state = session.camera_state
+    state.capture_mode = "astro"
+
+    async def stop_while_nina_starts_again(*, strict: bool = False) -> None:
+        state.capture_id = "new-exposure"
+        state.capture_phase = CapturePhase.CONFIGURING
+
+    monkeypatch.setattr(session, "_stop_astro_capture", stop_while_nina_starts_again)
+
+    await session.camera_abort_exposure()
+
+    assert state.capture_id == "new-exposure"
+    assert state.capture_phase == CapturePhase.CONFIGURING
+
+
+@pytest.mark.asyncio
+async def test_dwarf3_quick_set_rejected_pair_falls_back_to_nearest_preset(monkeypatch):
+    # Firmware V1.5.5.1 answers -3 to an exposure/gain pair that is not one of
+    # its presets (sky test 2026-11-20: 10 s / gain 60 refused).
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._params_config = {}
+    session.camera_state.duration = 10.0
+    session.camera_state.requested_gain = 60
+    session._v3_astro_param_catalog = {
+        "cameraParams": [{"cameraId": 0, "specialParams": {
+            "exp": {"paramId": 0x201000000000001, "values": [{"name": "10", "value": 150}]},
+            "gain": {"paramId": 0x201000000000002, "values": [60]},
+        }}]
+    }
+    quick_sets: list[str] = []
+    events: list[int] = []
+
+    async def fake_send_request(_module, command, request, _response_cls, **_kwargs):
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_GET_QUICK_SET_LIST:
+            response = astro_pb2.ResGetQuickSetList()
+            for info in ("0|0|10|120|0|null", "0|0|15|60|0|null"):
+                response.quick_set_list.add().info_id = info
+            return response
+        if command == protocol_pb2.DwarfCMD.CMD_ASTRO_SET_QUICK_SET:
+            quick_sets.append(request.info_id)
+            events.append(command)
+            code = protocol_pb2.OK if request.info_id == "0|0|10|120|0|null" else -3
+            return astro_pb2.ResSetQuickSet(code=code, info_id=request.info_id)
+        raise AssertionError(f"unexpected command {command}")
+
+    async def fake_send_and_check(module, command, request, **_kwargs):
+        events.append(command)
+
+    monkeypatch.setattr(session, "_send_request", fake_send_request)
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+
+    await session._ensure_exposure_settings(10.0)
+    await session._ensure_gain_settings()
+    await session._configure_astro_capture(frames=1, binning=(1, 1))
+
+    assert quick_sets == ["0|0|10|60|0|null", "0|0|10|120|0|null"]
+    # The live exposure and gain writes come after the preset, so the
+    # capture uses 10 s at gain 60 as NINA asked.
+    last_quick_set = len(events) - 1 - events[::-1].index(11041)
+    assert events[last_quick_set + 1 : last_quick_set + 3] == [16700, 16701]

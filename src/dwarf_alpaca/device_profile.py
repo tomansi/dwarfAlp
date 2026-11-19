@@ -71,11 +71,16 @@ class DeviceProfile:
     protocol: ProtocolProfile
     capture: CaptureCapabilities
     filters: FilterCapabilities
+    # Telephoto optics, reported to ASCOM clients by the telescope driver.
+    focal_length_mm: float = 150.0
+    aperture_mm: float = 35.0
 
 
 _DWARF3 = DeviceProfile(
     model_id="dwarf3",
     display_name="DWARF 3",
+    focal_length_mm=150.0,
+    aperture_mm=35.0,
     ws_client_id="0000DAF3-0000-1000-8000-00805F9B34FB",
     has_filterwheel=True,
     camera=CameraProfile(
@@ -130,6 +135,8 @@ _DWARF3 = DeviceProfile(
 _DWARFMINI = DeviceProfile(
     model_id="dwarfmini",
     display_name="DWARF mini",
+    focal_length_mm=150.0,
+    aperture_mm=30.0,
     ws_client_id="0000DAF4-0000-1000-8000-00805F9B34FB",
     has_filterwheel=True,
     camera=CameraProfile(
@@ -182,6 +189,8 @@ _DWARFMINI = DeviceProfile(
 _DWARF2 = DeviceProfile(
     model_id="dwarf2",
     display_name="DWARF 2",
+    focal_length_mm=100.0,
+    aperture_mm=24.0,
     ws_client_id="0000DAF2-0000-1000-8000-00805F9B34FB",
     has_filterwheel=False,
     camera=CameraProfile(
