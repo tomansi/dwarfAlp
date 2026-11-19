@@ -240,3 +240,19 @@ def test_ready_reported_when_close_not_seen() -> None:
     feed += tr.feed(_js("dwarf.camera.astro_capture_ready_wait_finished", elapsed_seconds=12.0), 12)
 
     assert _texts(feed)[-1] == "DWARF ready after 12 s"
+
+
+def test_calibration_during_first_goto_and_busy_exposure() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(_js("server.calibration_after_start.awaiting_target", model="dwarf3"), 0)
+    feed += tr.feed(_js("dwarf.telescope.calibration.notification.state", state="running"), 10)
+    feed += tr.feed(_js("dwarf.telescope.calibration.notification.state", state="plate_solving"), 30)
+    feed += tr.feed(_js("dwarf.telescope.calibration.notification.result", outcome="successful"), 52)
+    feed += tr.feed(_js("dwarf.camera.astro_capture_busy", code=-11501), 60)
+
+    assert _texts(feed) == [
+        "The DWARF will calibrate with the first GOTO from NINA",
+        "DWARF calibrating (plate solving the sky)…",
+        "DWARF calibrated; the GOTO continues",
+        "The DWARF refused the exposure: busy (a GOTO or another session is running)",
+    ]

@@ -226,6 +226,12 @@ class ActivityTranslator:
             "dwarf.focus.autofocus.before_calibration.not_started": self._on_autofocus_not_started,
             "dwarf.focus.autofocus.before_calibration.skipped": self._on_autofocus_skipped,
             "server.calibration_after_start.failed": self._on_startup_calibration_failed,
+            "server.calibration_after_start.awaiting_target": self._on_calibration_awaiting,
+            "dwarf.telescope.calibration.notification.state": self._on_calibration_state,
+            "dwarf.telescope.calibration.notification.result": self._on_calibration_result,
+            "dwarf.camera.astro_capture_busy": self._on_capture_busy,
+            "dwarf.camera.abort_superseded_by_new_exposure": self._on_abort_superseded,
+            "dwarf.telescope.abort_slew.stop_not_confirmed": self._on_abort_slew_unconfirmed,
             "alpaca.telescope.connected": self._on_telescope_connected,
             "alpaca.telescope.disconnected": self._on_telescope_disconnected,
             "alpaca.telescope.slew_request": self._on_slew_request,
@@ -600,6 +606,39 @@ class ActivityTranslator:
     def _on_calibration_start(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         self.status.telescope = "calibrating"
         return [ActivityEntry(t, WAIT, "Calibrating (plate solving)…")]
+
+    def _on_calibration_awaiting(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [ActivityEntry(t, INFO, "The DWARF will calibrate with the first GOTO from NINA")]
+
+    def _on_calibration_state(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        if f.get("state") != "running" or self.status.telescope == "calibrating":
+            return []
+        self.status.telescope = "calibrating"
+        return [
+            ActivityEntry(t, WAIT, "DWARF calibrating (plate solving the sky)…", group="calibration")
+        ]
+
+    def _on_calibration_result(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        if f.get("outcome") == "successful":
+            return [ActivityEntry(t, OK, "DWARF calibrated; the GOTO continues")]
+        self.status.telescope = "calibration failed"
+        return [ActivityEntry(t, ERROR, f"DWARF calibration failed ({f.get('outcome')})")]
+
+    def _on_capture_busy(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        self.status.camera = "DWARF busy"
+        return [
+            ActivityEntry(
+                t,
+                ERROR,
+                "The DWARF refused the exposure: busy (a GOTO or another session is running)",
+            )
+        ]
+
+    def _on_abort_superseded(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [ActivityEntry(t, INFO, "New exposure from NINA starts once the DWARF is ready")]
+
+    def _on_abort_slew_unconfirmed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [ActivityEntry(t, WARN, "Slew aborted; the DWARF did not confirm the stop")]
 
     def _on_calibration_done(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         return [ActivityEntry(t, OK, "Calibration completed")]
