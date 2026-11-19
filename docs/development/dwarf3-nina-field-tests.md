@@ -43,12 +43,17 @@ checks below after updating.
 | 2026-11-16 | Stop pressed in the middle of a NINA sequence | OK: session ended, the next sequence started normally |
 | 2026-11-17 | DWARF 3 in EQ mode (polar aligned in the app): GOTO (Tr 37, M44), tracking, 30 s and 120 s sequences | OK: GOTO in 24–35 s, frames delivered in order, session closes in 51–57 s |
 | 2026-11-17 | DWARF 2: connection, model detection and basic moves from NINA | OK; capture and GOTO not tested (clouds) |
+| 2026-11-19 | "Prepare calibration after start" (EQ mode) | OK: the DWARF calibrated during the first GOTO (3 plate solves, 42 s); nothing visible because it happens inside the GOTO |
+| 2026-11-19 | Second GOTO after dwarfAlp calibrated | Failed: the plain GOTO (11002) was accepted but the DWARF did not move. Fixed: one-click GOTO always |
+| 2026-11-19 | StartExposure sent by NINA right after Stop | Failed: the new exposure never started. Fixed |
+| 2026-11-19 | Abort slew while the DWARF was closing a session | Failed: 500 error and the aborted GOTO still ran. Fixed |
+| 2026-11-19 | Tracking off from NINA | OK: "Tracking stopped by NINA" |
+| 2026-11-19 | Sequence M81 → M31 with slews | OK, frames saved in NINA |
 | 2026-11-16 | Slew + Center (NINA plate solve) | First attempt failed and it was slow; aborted. To be retried |
 | 2026-11-15 | Astro autofocus before calibration | DWARF acknowledges but never starts it; GOTO now continues without it |
 | 2026-11-15 | Folder names created by one-click GOTO (`Caldwell20`, `NGC2281`) | Differ from the app (`C 20`, `NGC 2281`); the app still recognises them |
 
 ## Pending checks
 
-- Tracking off from NINA (`Set Tracking: Stopped` in the advanced sequencer, or the mount's Tracking switch): both send ASCOM Tracking=false, so one check covers both.
-- Calibration started from dwarfAlp ("Prepare calibration after start").
+- GOTO after dwarfAlp calibrated, with the one-click GOTO fix.
 - Slew + Center from NINA (repeated GOTOs, no Sync).
