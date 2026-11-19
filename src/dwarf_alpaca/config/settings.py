@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     calibration_timeout_seconds: float = 300.0
     calibration_wait_for_slew_seconds: float = 420.0
     auto_calibrate_on_slew: bool = True
+    # Use the one-click GOTO (11013) for every slew, also after a calibration.
+    # Sky test 2026-11-19 (DWARF 3 firmware V1.5.4.1, EQ mode): after dwarfAlp
+    # calibrated, the plain GOTO (11002) was accepted but the DWARF never moved.
+    # The one-click GOTO skips calibration when the DWARF is already calibrated.
+    always_one_click_goto: bool = True
     calibrate_after_server_start: bool = False
     focuser_target_tolerance_steps: int = 5
 

@@ -487,13 +487,15 @@ async def slew_to_coordinates_async(
 @router.put("/abortslew")
 async def abort_slew():
     session = await get_session()
-    if not session.is_simulated:
-        await session.telescope_abort_slew()
+    # Cancel the pending slew first: one still waiting for the DWARF to close
+    # a capture session must never start once NINA has aborted it.
     if state.slew_task and not state.slew_task.done():
         state.slew_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await state.slew_task
     state.slew_task = None
+    if not session.is_simulated:
+        await session.telescope_abort_slew()
     state.slewing = False
     state.right_ascension_rate = 0.0
     state.declination_rate = 0.0

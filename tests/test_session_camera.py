@@ -1664,3 +1664,24 @@ async def test_fetch_falls_back_to_album_after_ftp_failure(monkeypatch):
 
     assert album_attempted is True
     assert state.capture_phase == CapturePhase.READY
+
+
+@pytest.mark.asyncio
+async def test_abort_keeps_exposure_started_while_the_dwarf_closes(monkeypatch):
+    # Sky test 2026-11-19: NINA sent StartExposure while AbortExposure was
+    # still waiting for the DWARF to close the session.
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    state = session.camera_state
+    state.capture_mode = "astro"
+
+    async def stop_while_nina_starts_again(*, strict: bool = False) -> None:
+        state.capture_id = "new-exposure"
+        state.capture_phase = CapturePhase.CONFIGURING
+
+    monkeypatch.setattr(session, "_stop_astro_capture", stop_while_nina_starts_again)
+
+    await session.camera_abort_exposure()
+
+    assert state.capture_id == "new-exposure"
+    assert state.capture_phase == CapturePhase.CONFIGURING

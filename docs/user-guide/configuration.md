@@ -102,6 +102,7 @@ the authoritative source.
 | `calibration_timeout_seconds` | Firmware solve/calibration wait | `300` |
 | `calibration_wait_for_slew_seconds` | Combined calibration + slew wait | `420` |
 | `auto_calibrate_on_slew` | Calibrate on first uncalibrated target slew | `true` |
+| `always_one_click_goto` | Use the one-click GOTO for every slew, also after dwarfAlp calibrated (the plain GOTO did not move a DWARF 3 on firmware V1.5.4.1) | `true` |
 | `calibrate_after_server_start` | Autofocus at startup; target calibration waits for slew | `false` |
 | `focuser_target_tolerance_steps` | Position tolerance | `5` |
 

@@ -2610,8 +2610,8 @@ class DwarfSession:
             )
             await self._wait_for_astro_capture_ready()
         await self._halt_manual_motion()
-        use_one_click_goto = (
-            self.settings.auto_calibrate_on_slew and not self._has_recent_calibration()
+        use_one_click_goto = self.settings.auto_calibrate_on_slew and (
+            self.settings.always_one_click_goto or not self._has_recent_calibration()
         )
         if use_one_click_goto:
             await self._prepare_calibration_autofocus()
@@ -3477,15 +3477,26 @@ class DwarfSession:
         request = (
             astro_pb2.ReqStopOneClickGoto() if one_click else ReqStopGoto()
         )
-        await self._send_and_check(
-            protocol_pb2.ModuleId.MODULE_ASTRO,
-            (
-                protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO
-                if one_click
-                else protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO
-            ),
-            request,
-        )
+        try:
+            await self._send_and_check(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                (
+                    protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_ONE_CLICK_GOTO
+                    if one_click
+                    else protocol_pb2.DwarfCMD.CMD_ASTRO_STOP_GOTO
+                ),
+                request,
+            )
+        except (DwarfCommandError, asyncio.TimeoutError) as exc:
+            # Sky test 2026-11-19: the stop got no answer while the DWARF was
+            # closing a capture session, and the 500 left NINA's slew state
+            # out of step. Nothing is moving to stop in that case.
+            logger.warning(
+                "dwarf.telescope.abort_slew.stop_not_confirmed",
+                one_click=one_click,
+                error=str(exc) or type(exc).__name__,
+                error_type=type(exc).__name__,
+            )
         for axis in (0, 1):
             with contextlib.suppress(Exception):
                 await self.telescope_stop_axis(axis, ensure_ws=False)
@@ -4052,6 +4063,16 @@ class DwarfSession:
                 await self._end_continuous_session(reason="abort", strict=True)
             else:
                 await self._stop_astro_capture(strict=True)
+        if state.capture_id is not None:
+            # Sky test 2026-11-19: NINA sent StartExposure one second after
+            # AbortExposure, while the DWARF was still closing the session
+            # (~50 s). That exposure owns the camera state now; resetting it
+            # here left the new exposure waiting forever.
+            logger.info(
+                "dwarf.camera.abort_superseded_by_new_exposure",
+                capture_id=state.capture_id,
+            )
+            return
         state.capture_task = None
         state.start_time = None
         state.image = None
