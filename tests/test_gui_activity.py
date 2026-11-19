@@ -256,3 +256,14 @@ def test_calibration_during_first_goto_and_busy_exposure() -> None:
         "DWARF calibrated; the GOTO continues",
         "The DWARF refused the exposure: busy (a GOTO or another session is running)",
     ]
+
+
+def test_goto_failure_codes_are_explained() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(
+        _js("dwarf.telescope.goto.wait_result", result="failed", reason="one_click_code_-11504"), 0
+    )
+    assert _texts(feed) == [
+        "GOTO failed: the DWARF could not calibrate (plate solving found no stars: "
+        "daylight, clouds or something in the way)"
+    ]

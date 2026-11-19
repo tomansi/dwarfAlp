@@ -158,6 +158,17 @@ def parse_record(message: str) -> tuple[Optional[str], dict[str, Any]]:
     return head or None, dict(_KV_RE.findall(rest))
 
 
+# DWARF result codes and dwarfAlp reasons seen when a GOTO fails, in words.
+_GOTO_FAILURE_TEXT = {
+    "-11504": (
+        "the DWARF could not calibrate (plate solving found no stars: daylight, "
+        "clouds or something in the way)"
+    ),
+    "-11501": "the DWARF was busy with another task",
+    "goto_idle": "the DWARF did not start moving",
+}
+
+
 class ActivityTranslator:
     """Turn log records into activity entries and keep the status line."""
 
@@ -596,7 +607,12 @@ class ActivityTranslator:
             self.status.telescope = "tracking"
             return [ActivityEntry(t, OK, "GOTO completed: tracking the target")]
         self.status.telescope = "GOTO failed"
-        reason = f.get("reason") or f.get("result")
+        reason = str(f.get("reason") or f.get("result"))
+        explained = _GOTO_FAILURE_TEXT.get(reason)
+        if explained is None and reason.startswith("one_click_code_"):
+            explained = _GOTO_FAILURE_TEXT.get(reason[len("one_click_code_"):])
+        if explained:
+            return [ActivityEntry(t, ERROR, f"GOTO failed: {explained}")]
         return [ActivityEntry(t, ERROR, f"GOTO failed: {reason}")]
 
     def _on_goto_timeout(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
