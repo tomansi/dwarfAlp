@@ -79,7 +79,7 @@ targets = C("TargetAreaContainer", "Targets", items=[
         msg("Test 1 done. Activity should show: (DWARF calibrating... if it was the first GOTO), GOTO completed, "
             "5 frames delivered in order, 3856x2180. OK to continue."),
     ]),
-    dso("Test 2 - M45: Slew and Center, 5 x 15 s", "M45", coords(3, 47, 24.0, 24, 7, 0.0), [
+    dso("Test 2 - M81: Slew and Center, 5 x 15 s", "M81", coords(9, 55, 33.2, 69, 3, 55.0), [
         center, frames(5, 15, "5 x 15 s"),
         msg("Test 2 done. Activity should show the slew, the session ending, a GOTO, the short plate-solve frame and "
             "maybe a second small GOTO; NINA should report the target centred. OK to continue."),
@@ -88,7 +88,7 @@ targets = C("TargetAreaContainer", "Targets", items=[
         tracking_stopped(), wait(5),
         msg("Test 3 done. Activity should show: Tracking stopped by NINA. OK to continue."),
     ]),
-    dso("Test 4 - M42: GOTO after tracking off, Stop and resume", "M42", coords(5, 35, 17.3, -5, 23, 28.0, neg=True), [
+    dso("Test 4 - M31: GOTO after tracking off, Stop and resume", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
         slew,
         msg("Test 4: during the next 30 s exposures press Stop in NINA, wait a few seconds and press Start again. "
             "Activity should show the session ending (exposure aborted) and a new session starting."),
