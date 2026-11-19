@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from .. import __version__
+from ..device_profile import get_active_device_profile
 from ..dwarf.session import get_session
 from ..dwarf.ws_client import DwarfCommandError
 from ..proto import protocol_pb2
@@ -332,13 +333,15 @@ def get_alignment_mode():
 
 @router.get("/aperturearea")
 def get_aperture_area():
-    # Approximate 70mm aperture (m^2)
-    return alpaca_response(value=0.0038)
+    radius_m = get_active_device_profile().aperture_mm / 2000.0
+    return alpaca_response(value=math.pi * radius_m * radius_m)
 
 
 @router.get("/aperturediameter")
 def get_aperture_diameter():
-    return alpaca_response(value=0.07)
+    # ASCOM reports optics in metres. The values used to be fixed at 70 mm
+    # and 400 mm, which matched no DWARF.
+    return alpaca_response(value=get_active_device_profile().aperture_mm / 1000.0)
 
 
 @router.get("/driverinfo")
@@ -358,7 +361,7 @@ def get_equatorial_system():
 
 @router.get("/focallength")
 def get_focal_length():
-    return alpaca_response(value=0.4)
+    return alpaca_response(value=get_active_device_profile().focal_length_mm / 1000.0)
 
 
 @router.get("/siteelevation")
