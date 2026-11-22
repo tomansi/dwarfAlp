@@ -1733,3 +1733,31 @@ async def test_dwarf3_quick_set_rejected_pair_falls_back_to_nearest_preset(monke
     # capture uses 10 s at gain 60 as NINA asked.
     last_quick_set = len(events) - 1 - events[::-1].index(11041)
     assert events[last_quick_set + 1 : last_quick_set + 3] == [16700, 16701]
+
+
+@pytest.mark.asyncio
+async def test_continue_without_dark_releases_a_stale_request(monkeypatch):
+    # Sky test 2026-11-22: a 11050 left pending by a cancelled capture made
+    # every later dark-missing start fail with "already pending".
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    cancelled: list[tuple[int, int]] = []
+
+    def fake_cancel_pending(module_id, command_id, reason=None):
+        cancelled.append((module_id, command_id))
+        return True
+
+    async def fake_begin_request(_module, command, _request, _response_cls):
+        return asyncio.get_running_loop().create_future()
+
+    monkeypatch.setattr(session._ws_client, "cancel_pending", fake_cancel_pending)
+    monkeypatch.setattr(session, "_begin_request", fake_begin_request)
+
+    _future, command_id = await session._begin_astro_dark_warning_continuation(
+        ir_index=1, reason="dark_missing"
+    )
+
+    assert command_id == protocol_pb2.DwarfCMD.CMD_ASTRO_CONTINUE_SHOOTING
+    assert cancelled == [
+        (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_CONTINUE_SHOOTING)
+    ]

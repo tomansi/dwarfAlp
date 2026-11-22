@@ -29,7 +29,8 @@ continuous-session and session-deletion options.
 >
 > **NINA settings for the DWARF 3.** Options → Equipment → Telescope: focal length
 > 150 mm, focal ratio 4.3 (ASTAP otherwise solves for a field four times too large).
-> Camera timeout: 180 s. The first frame of a DWARF session arrives 1–2 minutes after
+> Options → Equipment → Camera → Camera Timeout: 180 s (NINA waits the exposure time
+> plus this value). The first frame of a DWARF session arrives 1–2 minutes after
 > the exposure ends (the DWARF closes the previous session and starts a new one);
 > with NINA's default 60 s timeout NINA aborts and asks again.
 > Exposure times must be one of the DWARF's own values (in seconds: 0.4, 0.5, 0.6,

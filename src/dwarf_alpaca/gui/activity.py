@@ -572,8 +572,8 @@ class ActivityTranslator:
                         WARN,
                         f"NINA stopped waiting {_seconds(waited)} s after asking for the frame "
                         "(its camera timeout). The first frame of a DWARF session can take "
-                        "1–2 minutes more than the exposure: raise Timeout in NINA's camera "
-                        "options to 180 s",
+                        "1–2 minutes more than the exposure: set Options → Equipment → Camera → "
+                        "Camera Timeout to 180 s in NINA",
                     )
                 )
         return entries

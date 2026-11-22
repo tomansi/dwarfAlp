@@ -5853,6 +5853,12 @@ class DwarfSession:
                 command_id=command_id,
                 protocol_minimum="2.5",
             )
+            # Sky test 2026-11-22: the DWARF does not always answer 11050. A
+            # request left pending by an earlier, cancelled capture made every
+            # later "continue without dark" fail with "already pending", so no
+            # exposure without a matching dark frame could start again.
+            if self._ws_client.cancel_pending(protocol_pb2.ModuleId.MODULE_ASTRO, command_id):
+                logger.info("dwarf.camera.astro_capture_continue_stale_released")
             future = await self._begin_request(
                 protocol_pb2.ModuleId.MODULE_ASTRO,
                 command_id,
@@ -5962,6 +5968,12 @@ class DwarfSession:
                 code=code,
             )
         except asyncio.CancelledError:
+            # Do not leave the request waiting for an answer that will never
+            # be read; the next capture would find it "already pending".
+            self._ws_client.cancel_pending(
+                protocol_pb2.ModuleId.MODULE_ASTRO,
+                pending_command_id,
+            )
             raise
         except asyncio.TimeoutError:
             self._ws_client.cancel_pending(
