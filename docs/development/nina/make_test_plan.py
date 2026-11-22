@@ -51,12 +51,27 @@ def dso(title, target, c, items):
     return lambda parent: container("DeepSkyObjectContainer", title, parent, items, (), extra())
 
 def msg(text): return item("SequenceItem.Utility.MessageBox", Text=text)
-def exposure(seconds):
-    return item("SequenceItem.Imaging.TakeExposure", ExposureTime=float(seconds), Gain=-1, Offset=-1,
+def exposure(seconds, gain=-1):
+    return item("SequenceItem.Imaging.TakeExposure", ExposureTime=float(seconds), Gain=gain, Offset=-1,
                 Binning={"$id": str(next(ids)), "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core", "X": 1, "Y": 1},
                 ImageType="LIGHT", ExposureCount=0)
-def frames(n, seconds, name):
-    return C("SequentialContainer", name, items=[exposure(seconds)], conditions=[loop(n)])
+def frames(n, seconds, name, gain=-1):
+    return C("SequentialContainer", name, items=[exposure(seconds, gain)], conditions=[loop(n)])
+
+FILTERS = {"VIS": ("VIS Filter", 0), "Astro": ("Astro Filter", 1), "Duo-Band": ("Duo-Band Filter", 2)}
+
+def filter_switch(key):
+    name, position = FILTERS[key]
+    def f(parent):
+        bin_id = str(next(ids))
+        return {"$id": str(next(ids)), "$type": f"{NS}.SequenceItem.FilterWheel.SwitchFilter, {NS}",
+                "Filter": {"$id": str(next(ids)), "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
+                           "_name": name, "_focusOffset": 0, "_position": position,
+                           "_autoFocusExposureTime": -1.0, "_autoFocusFilter": False,
+                           "_autoFocusBinning": {"$id": bin_id, "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core", "X": 1, "Y": 1},
+                           "_autoFocusGain": -1, "_autoFocusOffset": -1},
+                "Parent": {"$ref": parent}, "ErrorBehavior": 0, "Attempts": 1}
+    return f
 slew = item("SequenceItem.Telescope.SlewScopeToRaDec", Inherited=True)
 center = item("SequenceItem.Platesolving.Center", Inherited=True)
 def tracking_stopped(): return item("SequenceItem.Telescope.SetTracking", TrackingMode=5)  # Stopped
@@ -65,42 +80,53 @@ def wait(s): return item("SequenceItem.Utility.WaitForTimeSpan", Time=float(s))
 root_id = str(next(ids))
 root = {"$id": root_id, "$type": f"{NS}.Container.SequenceRootContainer, {NS}",
         "Strategy": {"$type": f"{NS}.Container.ExecutionStrategy.SequentialStrategy, {NS}"},
-        "Name": "dwarfAlp DWARF 3 test plan",
+        "Name": "dwarfAlp DWARF 3 test plan 2",
         "Conditions": {"$id": str(next(ids)), "$type": COLL_COND, "$values": []},
         "IsExpanded": True}
 start = C("StartAreaContainer", "Start", items=[
-    msg("dwarfAlp test plan. Before you continue: dwarfAlp server running (Prepare calibration after start ticked if you test it), "
-        "NINA connected to camera, filter wheel and mount, Options > Equipment > Telescope focal length 150 mm and focal ratio 4.3, "
-        "ASTAP with the D50 database, plate solving exposure about 10 s. Keep the dwarfAlp Activity tab in view."),
+    msg("dwarfAlp test plan 2 (filters, gains, firmware V1.5.5.1). Before you continue: the Capture tab warning in dwarfAlp "
+        "says 'V1.5.4.1 and V1.5.5.1' (current build), NINA camera Timeout 180 s, telescope focal length 150 mm and "
+        "focal ratio 4.3, ASTAP D50, plate solving exposure 10 s. Keep the dwarfAlp Activity tab in view."),
 ])
 targets = C("TargetAreaContainer", "Targets", items=[
-    dso("Test 1 - M31: GOTO and 5 x 10 s", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
-        slew, frames(5, 10, "5 x 10 s"),
-        msg("Test 1 done. Activity should show: (DWARF calibrating... if it was the first GOTO), GOTO completed, "
-            "5 frames delivered in order, 3856x2180. OK to continue."),
-    ]),
-    dso("Test 2 - M81: Slew and Center, 5 x 15 s", "M81", coords(9, 55, 33.2, 69, 3, 55.0), [
-        center, frames(5, 15, "5 x 15 s"),
-        msg("Test 2 done. Activity should show the slew, the session ending, a GOTO, the short plate-solve frame and "
-            "maybe a second small GOTO; NINA should report the target centred. OK to continue."),
-    ]),
-    C("SequentialContainer", "Test 3 - Tracking off", items=[
-        tracking_stopped(), wait(5),
-        msg("Test 3 done. Activity should show: Tracking stopped by NINA. OK to continue."),
-    ]),
-    dso("Test 4 - M31: GOTO after tracking off, Stop and resume", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
+    dso("Test 1 - M31: GOTO, VIS 10 s gain 60, Astro 13 s gain 100", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
         slew,
-        msg("Test 4: during the next 30 s exposures press Stop in NINA, wait a few seconds and press Start again. "
-            "Activity should show the session ending (exposure aborted) and a new session starting."),
-        frames(5, 30, "5 x 30 s"),
+        filter_switch("VIS"), frames(3, 10, "VIS 3 x 10 s gain 60", gain=60),
+        filter_switch("Astro"), frames(3, 13, "Astro 3 x 13 s gain 100", gain=100),
+        msg("Test 1 done. Activity should show: GOTO completed; Filter VIS, DWARF set to 10 s gain 60, 3 frames; "
+            "session ended (filter changed); Filter Astro, DWARF set to 13 s gain 100, 3 frames. These pairs are not "
+            "DWARF presets: before the fix they never started. OK to continue."),
+    ]),
+    dso("Test 2 - M81: Slew and Center, Duo-Band 30 s, VIS 15 s gain 130", "M81", coords(9, 55, 33.2, 69, 3, 55.0), [
+        center,
+        filter_switch("Duo-Band"), frames(3, 30, "Duo-Band 3 x 30 s gain 60", gain=60),
+        filter_switch("VIS"), frames(3, 15, "VIS 3 x 15 s gain 130", gain=130),
+        msg("Test 2 done. NINA should report M81 centred (the 10 s plate-solve frame failed before the fix). Activity: "
+            "Duo-Band 30 s gain 60, 3 frames; VIS 15 s gain 130, 3 frames. OK to continue."),
+    ]),
+    C("SequentialContainer", "Test 3 - Exposure the DWARF cannot take (20 s)", items=[
+        frames(1, 20, "1 x 20 s (expected to fail)", gain=60),
+        msg("Test 3 done. NINA should report an error and Activity should show 'Exposure could not start: No exact "
+            "firmware exposure value ... 20s (supported: ...)'. OK to continue."),
+    ]),
+    C("SequentialContainer", "Test 4 - Tracking off", items=[
+        tracking_stopped(), wait(5),
+        msg("Test 4 done. Activity should show: Tracking stopped by NINA. OK to continue."),
+    ]),
+    dso("Test 5 - M31: GOTO after tracking off, Astro 45 s, Stop and resume", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
+        slew, filter_switch("Astro"),
+        msg("Test 5: during the next 45 s exposures press Stop in NINA, wait a few seconds and press Start again. "
+            "Activity should show the session ending (exposure aborted) and a new session starting, with no "
+            "'NINA stopped waiting' warning."),
+        frames(4, 45, "Astro 4 x 45 s", gain=60),
     ]),
 ])
 end = C("EndAreaContainer", "End", items=[
-    tracking_stopped(),
-    msg("Test plan finished. Please send the Activity and Technical logs from dwarfAlp."),
+    tracking_stopped(), filter_switch("VIS"),
+    msg("Test plan 2 finished. Please send the Activity and Technical logs from dwarfAlp."),
 ])
 root["Items"] = {"$id": str(next(ids)), "$type": COLL_ITEM, "$values": [start(root_id), targets(root_id), end(root_id)]}
 root["Triggers"] = {"$id": str(next(ids)), "$type": COLL_TRIG, "$values": []}
 root["Parent"] = None; root["ErrorBehavior"] = 0; root["Attempts"] = 1
-json.dump(root, open("dwarfAlp-test-plan.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+json.dump(root, open("dwarfAlp-test-plan-2.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 print("ok")
