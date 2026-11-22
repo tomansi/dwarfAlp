@@ -299,3 +299,18 @@ def test_user_abort_has_no_timeout_hint() -> None:
         _js("dwarf.camera.continuous_session_ended", reason="abort", frames_delivered=0), 22
     )
     assert len(feed) == 1
+
+
+def test_rejected_exposure_request_is_reported() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(
+        _js(
+            "alpaca.camera.start_rejected",
+            error="No exact firmware exposure value is available for requested duration 20s "
+            "(supported: 1, 10, 15, 30)",
+        ),
+        0,
+    )
+    assert _texts(feed)[0].startswith(
+        "Exposure could not start: No exact firmware exposure value is available for requested duration 20s"
+    )

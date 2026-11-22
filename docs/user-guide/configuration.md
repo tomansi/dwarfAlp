@@ -31,7 +31,10 @@ continuous-session and session-deletion options.
 > 150 mm, focal ratio 4.3 (ASTAP otherwise solves for a field four times too large).
 > Camera timeout: 180 s. The first frame of a DWARF session arrives 1–2 minutes after
 > the exposure ends (the DWARF closes the previous session and starts a new one);
-> with NINA's default 60 s timeout NINA aborts and asks again. **File → Save settings profile as…**
+> with NINA's default 60 s timeout NINA aborts and asks again.
+> Exposure times must be one of the DWARF's own values (in seconds: 0.4, 0.5, 0.6,
+> 0.8, 1, 1.3, 1.6, 2, 2.5, 3.2, 4, 5, 6, 8, 10, 13, 15, 30, 45, 60, 90, 120 and
+> shorter fractions); gain 40–240. Other values are refused and Activity says so. **File → Save settings profile as…**
 writes to another file, which can be opened later with **Load settings profile…**.
 
 Precedence, lowest to highest: defaults, `.env` and environment variables, the YAML

@@ -206,6 +206,7 @@ class ActivityTranslator:
             "dwarf.camera.astro_capture_ready_wait_finished": self._on_ready_done,
             "dwarf.camera.astro_capture_ready_wait_timeout": self._on_ready_timeout,
             "dwarf.camera.deferred_start_failed": self._on_start_failed,
+            "alpaca.camera.start_rejected": self._on_start_failed,
             "dwarf.camera.v3_astro_quick_set_rejected": self._on_quick_set_rejected,
             "dwarf.camera.astro_capture_state": self._on_capture_state,
             "dwarf.camera.astro_capture_goto_missing": self._on_goto_missing,
@@ -450,6 +451,8 @@ class ActivityTranslator:
         ]
 
     def _on_start_failed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        if "quick-set" in str(f.get("error", "")):
+            return []  # already reported with the exposure and gain
         self.status.camera = "failed"
         return [ActivityEntry(t, ERROR, f"Exposure could not start: {f.get('error')}")]
 

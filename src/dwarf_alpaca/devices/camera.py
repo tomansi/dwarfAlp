@@ -751,6 +751,7 @@ async def start_exposure(
                 status_code=409, detail="A capture is already in progress."
             ) from exc
         if isinstance(exc, CaptureConfigurationError):
+            logger.warning("alpaca.camera.start_rejected", error=str(exc))
             session.camera_state.capture_phase = CapturePhase.FAILED
             session.camera_state.start_time = None
             session.camera_state.last_error = f"configuration:{exc}"
