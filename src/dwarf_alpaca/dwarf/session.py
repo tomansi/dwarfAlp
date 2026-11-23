@@ -296,7 +296,7 @@ def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
     return result
 
 
-FALLBACK_FILTER_LABELS = ["VIS Filter", "Astro Filter", "HO Filter"]
+FALLBACK_FILTER_LABELS = ["VIS", "Astro", "HO"]
 FALLBACK_FILTER_LABELS_MINI = ["Astro", "Duo-Band"]
 _MINI_CANONICAL_FILTER_LABELS = tuple(FALLBACK_FILTER_LABELS_MINI)
 
@@ -791,7 +791,7 @@ class DwarfSession:
             lowered = " ".join(part for part in lowered.split() if part)
             if not lowered:
                 continue
-            if "duo" in lowered and "band" in lowered:
+            if ("duo" in lowered and "band" in lowered) or lowered in {"ho", "ho filter"}:
                 canonical.add("duoband")
             if lowered in {"dark", "dark filter", "astro", "astro filter"}:
                 canonical.add("dark")

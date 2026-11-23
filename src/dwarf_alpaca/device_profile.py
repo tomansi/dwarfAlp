@@ -125,9 +125,9 @@ _DWARF3 = DeviceProfile(
         supports_abort=True,
     ),
     filters=FilterCapabilities(
-        # The DWARFLAB app renamed the third filter from "Duo-Band" to "HO"
-        # (2026-11); DRACO is expected to add an "SO" filter.
-        labels=("VIS Filter", "Astro Filter", "HO Filter"),
+        # Names as in the DWARFLAB app, which renamed the third filter from
+        # "Duo-Band" to "HO" (2026-11); DRACO is expected to add "SO".
+        labels=("VIS", "Astro", "HO"),
         firmware_indices=(0, 1, 2),
         control_path="v3-camera-param",
         runtime_discovery=False,

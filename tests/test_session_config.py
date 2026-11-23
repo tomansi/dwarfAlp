@@ -121,7 +121,7 @@ async def test_ensure_default_filter_uses_dwarf3_v3_capture_index(
 
     await session._ensure_default_filter("VIS")
 
-    assert session.camera_state.filter_name == "VIS Filter"
+    assert session.camera_state.filter_name == "VIS"
     assert session.camera_state.filter_index == 0
     assert calls == [(16703, 0)]
 
@@ -151,9 +151,9 @@ async def test_dwarf3_filter_options_use_model_specific_v3_indices() -> None:
     options = await session._get_filter_options()
 
     assert [entry.label for entry in options] == [
-        "VIS Filter",
-        "Astro Filter",
-        "HO Filter",
+        "VIS",
+        "Astro",
+        "HO",
     ]
     assert [entry.index for entry in options] == [0, 1, 2]
     assert all(entry.controllable for entry in options)
@@ -179,8 +179,8 @@ async def test_dwarf3_filter_selection_uses_v3_adjust_command() -> None:
     await session._apply_filter_option(1, options[1])
 
     assert calls == [(16703, 0x20100000000000D, 1)]
-    assert session.camera_state.filter_name == "Astro Filter"
-    assert session.camera_state.applied_filter_name == "Astro Filter"
+    assert session.camera_state.filter_name == "Astro"
+    assert session.camera_state.applied_filter_name == "Astro"
 
 
 @pytest.mark.asyncio

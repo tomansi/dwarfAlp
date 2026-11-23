@@ -124,7 +124,7 @@
                     "Filter": {
                       "$id": "28",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                      "_name": "VIS Filter",
+                      "_name": "VIS",
                       "_focusOffset": 0,
                       "_position": 0,
                       "_autoFocusExposureTime": -1.0,
@@ -210,7 +210,7 @@
                     "Filter": {
                       "$id": "37",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                      "_name": "Astro Filter",
+                      "_name": "Astro",
                       "_focusOffset": 0,
                       "_position": 1,
                       "_autoFocusExposureTime": -1.0,
@@ -365,7 +365,7 @@
                     "Filter": {
                       "$id": "53",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                      "_name": "HO Filter",
+                      "_name": "HO",
                       "_focusOffset": 0,
                       "_position": 2,
                       "_autoFocusExposureTime": -1.0,
@@ -451,7 +451,7 @@
                     "Filter": {
                       "$id": "62",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                      "_name": "VIS Filter",
+                      "_name": "VIS",
                       "_focusOffset": 0,
                       "_position": 0,
                       "_autoFocusExposureTime": -1.0,
@@ -766,7 +766,7 @@
                     "Filter": {
                       "$id": "96",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                      "_name": "Astro Filter",
+                      "_name": "Astro",
                       "_focusOffset": 0,
                       "_position": 1,
                       "_autoFocusExposureTime": -1.0,
@@ -915,7 +915,7 @@
               "Filter": {
                 "$id": "112",
                 "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                "_name": "VIS Filter",
+                "_name": "VIS",
                 "_focusOffset": 0,
                 "_position": 0,
                 "_autoFocusExposureTime": -1.0,

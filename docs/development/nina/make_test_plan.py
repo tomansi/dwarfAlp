@@ -58,7 +58,7 @@ def exposure(seconds, gain=-1):
 def frames(n, seconds, name, gain=-1):
     return C("SequentialContainer", name, items=[exposure(seconds, gain)], conditions=[loop(n)])
 
-FILTERS = {"VIS": ("VIS Filter", 0), "Astro": ("Astro Filter", 1), "HO": ("HO Filter", 2)}
+FILTERS = {"VIS": ("VIS", 0), "Astro": ("Astro", 1), "HO": ("HO", 2)}
 
 def filter_switch(key):
     name, position = FILTERS[key]
