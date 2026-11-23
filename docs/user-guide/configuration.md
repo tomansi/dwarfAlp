@@ -33,9 +33,11 @@ continuous-session and session-deletion options.
 > plus this value). The first frame of a DWARF session arrives 1–2 minutes after
 > the exposure ends (the DWARF closes the previous session and starts a new one);
 > with NINA's default 60 s timeout NINA aborts and asks again.
-> Exposure times must be one of the DWARF's own values (in seconds: 0.4, 0.5, 0.6,
-> 0.8, 1, 1.3, 1.6, 2, 2.5, 3.2, 4, 5, 6, 8, 10, 13, 15, 30, 45, 60, 90, 120 and
-> shorter fractions); gain 40–240. Other values are refused and Activity says so.
+> Exposure times must be one of the DWARF's own values (DWARF 3 astro mode, in
+> seconds: 1, 1.3, 1.6, 2, 2.5, 3.2, 4, 5, 6, 8, 10, 13, 15, 30, 45, 60, 90, 120);
+> other times are refused and Activity says so. Gain is 40–240 in steps of 10; a
+> value in between is rounded to the nearest step. Other models: see
+> `device-models.md`.
 > The DWARF 3 filters are named **VIS**, **Astro** and **HO**, as in the DWARFLAB app
 > (which called HO "Duo-Band" until 2026-11). NINA stores filters by name: after
 > updating dwarfAlp, reconnect the filter wheel in NINA and update sequences that

@@ -1817,3 +1817,21 @@ async def test_lights_left_alone_by_default(monkeypatch):
     await session._apply_light_preferences(response)
 
     assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_gain_between_dwarf_steps_uses_the_nearest_value():
+    # The DWARF offers gain 40-240 in steps of 10; NINA lets the user type 65.
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    session._v3_astro_param_catalog = {
+        "cameraParams": [{"cameraId": 0, "specialParams": {
+            "exp": {"paramId": 0x201000000000001, "values": [{"name": "10", "value": 150}]},
+            "gain": {"paramId": 0x201000000000002, "values": list(range(40, 250, 10))},
+        }}]
+    }
+
+    *_ignored, gain = await session._resolve_v3_astro_controls(10.0, 64)
+    assert gain == 60
+    *_ignored, gain = await session._resolve_v3_astro_controls(10.0, 245)
+    assert gain == 240

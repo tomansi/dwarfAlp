@@ -183,7 +183,7 @@ def test_camera_gain_and_offset_controls():
     assert resp.status_code == 200
     gain_max = _value(resp)
     assert isinstance(gain_max, int)
-    assert gain_max == 200
+    assert gain_max == 240
     assert gain_max >= gain_min
 
     resp = client.get("/api/v1/camera/0/gains")

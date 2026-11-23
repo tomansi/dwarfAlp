@@ -208,6 +208,7 @@ class ActivityTranslator:
             "dwarf.camera.deferred_start_failed": self._on_start_failed,
             "alpaca.camera.start_rejected": self._on_start_failed,
             "dwarf.lights.off": self._on_light_off,
+            "dwarf.camera.gain_rounded": self._on_gain_rounded,
             "dwarf.lights.off_failed": self._on_light_off_failed,
             "dwarf.camera.v3_astro_quick_set_rejected": self._on_quick_set_rejected,
             "dwarf.camera.astro_capture_state": self._on_capture_state,
@@ -438,6 +439,17 @@ class ActivityTranslator:
         self.status.camera = "DWARF busy"
         return [
             ActivityEntry(t, ERROR, f"DWARF still busy after {_seconds(f.get('timeout'))} s")
+        ]
+
+    def _on_gain_rounded(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        return [
+            ActivityEntry(
+                t,
+                INFO,
+                f"Gain {f.get('requested')} is not a DWARF value (40–240 in steps of 10); "
+                f"using {f.get('used')}",
+                group="gain_rounded",
+            )
         ]
 
     def _on_light_off(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:

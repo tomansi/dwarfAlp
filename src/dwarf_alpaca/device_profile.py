@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from .config.settings import Settings, normalize_dwarf_device_model
 
 
+# Gain and exposure limits follow the DWARFLAB app's astro settings (checked
+# 2026-11-23): gain 40-240 in steps of 10 on every model; longest exposure
+# DWARF 2 15 s, DWARF 3 120 s, DWARF mini 180 s.
 @dataclass(frozen=True)
 class CameraProfile:
     name: str
@@ -94,8 +97,8 @@ _DWARF3 = DeviceProfile(
         ad_converter_bits=12,
         max_binning=2,
         pixel_size_um=2.0,
-        min_gain_db=0.0,
-        max_gain_db=200.0,
+        min_gain_db=40.0,
+        max_gain_db=240.0,
         min_exposure_s=0.00001,
         max_exposure_s=120.0,
         electrons_per_adu=(2.75,),
@@ -151,7 +154,7 @@ _DWARFMINI = DeviceProfile(
         max_binning=1,
         pixel_size_um=2.9,
         min_gain_db=40.0,
-        max_gain_db=100.0,
+        max_gain_db=240.0,
         min_exposure_s=1.0,
         max_exposure_s=180.0,
         electrons_per_adu=(2.75,),
@@ -181,7 +184,7 @@ _DWARFMINI = DeviceProfile(
         supports_abort=True,
     ),
     filters=FilterCapabilities(
-        labels=("Astro", "Duo-Band"),
+        labels=("Astro", "HO"),
         firmware_indices=(1, 2),
         control_path="astro-start-ir-index",
         runtime_discovery=False,
@@ -203,10 +206,10 @@ _DWARF2 = DeviceProfile(
         ad_converter_bits=12,
         max_binning=2,
         pixel_size_um=1.45,
-        min_gain_db=0.0,
-        max_gain_db=200.0,
+        min_gain_db=40.0,
+        max_gain_db=240.0,
         min_exposure_s=0.00001,
-        max_exposure_s=120.0,
+        max_exposure_s=15.0,
         electrons_per_adu=(2.75,),
         full_well_capacity_e=(11270.0,),
         raw_format="SRGGB12",

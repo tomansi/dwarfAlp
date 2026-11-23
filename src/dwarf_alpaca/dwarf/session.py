@@ -297,7 +297,7 @@ def _decode_v3_device_config_payload(raw: bytes) -> dict[str, Any]:
 
 
 FALLBACK_FILTER_LABELS = ["VIS", "Astro", "HO"]
-FALLBACK_FILTER_LABELS_MINI = ["Astro", "Duo-Band"]
+FALLBACK_FILTER_LABELS_MINI = ["Astro", "HO"]
 _MINI_CANONICAL_FILTER_LABELS = tuple(FALLBACK_FILTER_LABELS_MINI)
 
 _MAX_JOYSTICK_SPEED = 30.0
@@ -777,8 +777,8 @@ class DwarfSession:
             return resolved
         lowered = resolved.strip().lower().replace("_", " ")
         lowered = " ".join(part for part in lowered.split() if part)
-        if "duo" in lowered and "band" in lowered:
-            return "Duo-Band"
+        if ("duo" in lowered and "band" in lowered) or lowered in {"ho", "ho filter"}:
+            return "HO"
         if lowered in {"astro", "astro filter"}:
             return "Astro"
         return resolved
@@ -4291,12 +4291,17 @@ class DwarfSession:
             )
 
         gain_values = gain_param.get("values")
-        if isinstance(gain_values, list) and gain not in {
-            int(value) for value in gain_values if isinstance(value, (int, float))
-        }:
-            raise CaptureConfigurationError(
-                f"Gain {gain} is not supported by the active V3 astronomy mode"
+        allowed_gains = sorted(
+            {int(value) for value in gain_values if isinstance(value, (int, float))}
+        ) if isinstance(gain_values, list) else []
+        if allowed_gains and gain not in allowed_gains:
+            # The DWARF offers gain in steps of 10 (40-240); NINA lets the user
+            # type any value. Use the nearest one instead of refusing.
+            nearest = min(allowed_gains, key=lambda value: (abs(value - gain), value))
+            logger.warning(
+                "dwarf.camera.gain_rounded", requested=gain, used=nearest
             )
+            gain = nearest
         return (
             int(exposure_param.get("paramId", _V3_ASTRO_EXPOSURE_PARAM_ID)),
             match[1],

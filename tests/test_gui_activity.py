@@ -321,3 +321,9 @@ def test_lights_turned_off() -> None:
     feed = tr.feed(_js("dwarf.lights.off", light="ring_light"), 0)
     feed += tr.feed(_js("dwarf.lights.off", light="battery_indicator"), 0)
     assert _texts(feed) == ["Ring light turned off", "Battery indicator turned off"]
+
+
+def test_gain_rounding_is_reported() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(_js("dwarf.camera.gain_rounded", requested=65, used=70), 0)
+    assert _texts(feed) == ["Gain 65 is not a DWARF value (40–240 in steps of 10); using 70"]
