@@ -16,7 +16,7 @@ def container(cls, name, parent, items=(), conditions=(), extra=None):
     if extra: c.update(extra)
     c["Conditions"] = {"$id": str(next(ids)), "$type": COLL_COND, "$values": [f(cid) for f in conditions]}
     c["IsExpanded"] = True
-    c["Items"] = {"$id": str(next(ids)), "$type": COLL_ITEM, "$values": [f(cid) for f in items]}
+    c["Items"] = {"$id": str(next(ids)), "$type": COLL_ITEM, "$values": [f(cid) for f in items if f]}
     c["Triggers"] = {"$id": str(next(ids)), "$type": COLL_TRIG, "$values": []}
     if parent: c["Parent"] = {"$ref": parent}
     c["ErrorBehavior"] = 0; c["Attempts"] = 1
@@ -51,7 +51,9 @@ def dso(title, target, c, items):
                            "InputCoordinates": c}, "ExposureInfoListExpanded": False}
     return lambda parent: container("DeepSkyObjectContainer", title, parent, items, (), extra())
 
-def msg(text): return item("SequenceItem.Utility.MessageBox", Text=text)
+# Plan 3 runs without pauses: the checkpoint texts are kept as notes only.
+PAUSES = False
+def msg(text): return item("SequenceItem.Utility.MessageBox", Text=text) if PAUSES else None
 def exposure(seconds, gain=-1):
     return item("SequenceItem.Imaging.TakeExposure", ExposureTime=float(seconds), Gain=gain, Offset=-1,
                 Binning={"$id": str(next(ids)), "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core", "X": 1, "Y": 1},
@@ -114,7 +116,7 @@ targets = C("TargetAreaContainer", "Targets", items=[
         tracking_stopped(), wait(5),
         msg("Test 4 done. Activity should show: Tracking stopped by NINA. OK to continue."),
     ]),
-    dso("Test 5 - M31: GOTO after tracking off, HO 45 s, Stop and resume", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
+    dso("Test 5 - M31: GOTO after tracking off, HO 4 x 45 s", "M31", coords(0, 42, 44.3, 41, 16, 9.0), [
         slew, filter_switch("HO"),
         msg("Test 5: during the next 45 s exposures press Stop in NINA, wait a few seconds and press Start again. "
             "Activity should show the session ending (exposure aborted) and a new session starting, with no "

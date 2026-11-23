@@ -31,21 +31,10 @@
         "Items": {
           "$id": "15",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
-          "$values": [
-            {
-              "$id": "16",
-              "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-              "Text": "dwarfAlp test plan 3 (Astro and HO filters, gains, firmware V1.5.5.1). Before you continue: the Capture tab warning in dwarfAlp says 'V1.5.4.1 and V1.5.5.1' (current build), filters named Astro and HO, NINA Camera Timeout 180 s, telescope focal length 150 mm and focal ratio 4.3, ASTAP D50, plate solving exposure 10 s. Keep the dwarfAlp Activity tab in view.",
-              "Parent": {
-                "$ref": "13"
-              },
-              "ErrorBehavior": 0,
-              "Attempts": 1
-            }
-          ]
+          "$values": []
         },
         "Triggers": {
-          "$id": "17",
+          "$id": "16",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
           "$values": []
         },
@@ -56,31 +45,31 @@
         "Attempts": 1
       },
       {
-        "$id": "18",
+        "$id": "17",
         "$type": "NINA.Sequencer.Container.TargetAreaContainer, NINA.Sequencer",
         "Strategy": {
           "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
         },
         "Name": "Targets",
         "Conditions": {
-          "$id": "19",
+          "$id": "18",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
           "$values": []
         },
         "IsExpanded": true,
         "Items": {
-          "$id": "20",
+          "$id": "19",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
           "$values": [
             {
-              "$id": "22",
+              "$id": "21",
               "$type": "NINA.Sequencer.Container.DeepSkyObjectContainer, NINA.Sequencer",
               "Strategy": {
                 "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
               },
               "Name": "Test 1 - M31: GOTO, Astro 10 s gain 60, HO 13 s gain 100",
               "Target": {
-                "$id": "21",
+                "$id": "20",
                 "$type": "NINA.Astrometry.InputTarget, NINA.Astrometry",
                 "Expanded": true,
                 "TargetName": "M31",
@@ -99,30 +88,30 @@
               },
               "ExposureInfoListExpanded": false,
               "Conditions": {
-                "$id": "23",
+                "$id": "22",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "IsExpanded": true,
               "Items": {
-                "$id": "24",
+                "$id": "23",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                 "$values": [
                   {
-                    "$id": "25",
+                    "$id": "24",
                     "$type": "NINA.Sequencer.SequenceItem.Telescope.SlewScopeToRaDec, NINA.Sequencer",
                     "Inherited": true,
                     "Parent": {
-                      "$ref": "22"
+                      "$ref": "21"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "27",
+                    "$id": "26",
                     "$type": "NINA.Sequencer.SequenceItem.FilterWheel.SwitchFilter, NINA.Sequencer",
                     "Filter": {
-                      "$id": "28",
+                      "$id": "27",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
                       "_name": "Astro",
                       "_focusOffset": 0,
@@ -130,7 +119,7 @@
                       "_autoFocusExposureTime": -1.0,
                       "_autoFocusFilter": false,
                       "_autoFocusBinning": {
-                        "$id": "26",
+                        "$id": "25",
                         "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core",
                         "X": 1,
                         "Y": 1
@@ -139,40 +128,40 @@
                       "_autoFocusOffset": -1
                     },
                     "Parent": {
-                      "$ref": "22"
+                      "$ref": "21"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "29",
+                    "$id": "28",
                     "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
                     "Name": "Astro 3 x 10 s gain 60",
                     "Conditions": {
-                      "$id": "30",
+                      "$id": "29",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "31",
+                          "$id": "30",
                           "$type": "NINA.Sequencer.Conditions.LoopCondition, NINA.Sequencer",
                           "CompletedIterations": 0,
                           "Iterations": 3,
                           "Parent": {
-                            "$ref": "29"
+                            "$ref": "28"
                           }
                         }
                       ]
                     },
                     "IsExpanded": true,
                     "Items": {
-                      "$id": "32",
+                      "$id": "31",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "33",
+                          "$id": "32",
                           "$type": "NINA.Sequencer.SequenceItem.Imaging.TakeExposure, NINA.Sequencer",
                           "ExposureTime": 10.0,
                           "Gain": 60,
@@ -186,7 +175,7 @@
                           "ImageType": "LIGHT",
                           "ExposureCount": 0,
                           "Parent": {
-                            "$ref": "29"
+                            "$ref": "28"
                           },
                           "ErrorBehavior": 0,
                           "Attempts": 1
@@ -194,21 +183,21 @@
                       ]
                     },
                     "Triggers": {
-                      "$id": "34",
+                      "$id": "33",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                       "$values": []
                     },
                     "Parent": {
-                      "$ref": "22"
+                      "$ref": "21"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "36",
+                    "$id": "35",
                     "$type": "NINA.Sequencer.SequenceItem.FilterWheel.SwitchFilter, NINA.Sequencer",
                     "Filter": {
-                      "$id": "37",
+                      "$id": "36",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
                       "_name": "HO",
                       "_focusOffset": 0,
@@ -216,7 +205,7 @@
                       "_autoFocusExposureTime": -1.0,
                       "_autoFocusFilter": false,
                       "_autoFocusBinning": {
-                        "$id": "35",
+                        "$id": "34",
                         "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core",
                         "X": 1,
                         "Y": 1
@@ -225,40 +214,40 @@
                       "_autoFocusOffset": -1
                     },
                     "Parent": {
-                      "$ref": "22"
+                      "$ref": "21"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "38",
+                    "$id": "37",
                     "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
                     "Name": "HO 3 x 13 s gain 100",
                     "Conditions": {
-                      "$id": "39",
+                      "$id": "38",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "40",
+                          "$id": "39",
                           "$type": "NINA.Sequencer.Conditions.LoopCondition, NINA.Sequencer",
                           "CompletedIterations": 0,
                           "Iterations": 3,
                           "Parent": {
-                            "$ref": "38"
+                            "$ref": "37"
                           }
                         }
                       ]
                     },
                     "IsExpanded": true,
                     "Items": {
-                      "$id": "41",
+                      "$id": "40",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "42",
+                          "$id": "41",
                           "$type": "NINA.Sequencer.SequenceItem.Imaging.TakeExposure, NINA.Sequencer",
                           "ExposureTime": 13.0,
                           "Gain": 100,
@@ -272,7 +261,7 @@
                           "ImageType": "LIGHT",
                           "ExposureCount": 0,
                           "Parent": {
-                            "$ref": "38"
+                            "$ref": "37"
                           },
                           "ErrorBehavior": 0,
                           "Attempts": 1
@@ -280,22 +269,12 @@
                       ]
                     },
                     "Triggers": {
-                      "$id": "43",
+                      "$id": "42",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                       "$values": []
                     },
                     "Parent": {
-                      "$ref": "22"
-                    },
-                    "ErrorBehavior": 0,
-                    "Attempts": 1
-                  },
-                  {
-                    "$id": "44",
-                    "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-                    "Text": "Test 1 done. Activity should show: GOTO completed; Filter Astro, DWARF set to 10 s gain 60, 3 frames; session ended (filter changed); Filter HO, DWARF set to 13 s gain 100, 3 frames. These pairs are not DWARF presets: before the fix they never started. OK to continue.",
-                    "Parent": {
-                      "$ref": "22"
+                      "$ref": "21"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
@@ -303,25 +282,25 @@
                 ]
               },
               "Triggers": {
-                "$id": "45",
+                "$id": "43",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "Parent": {
-                "$ref": "18"
+                "$ref": "17"
               },
               "ErrorBehavior": 0,
               "Attempts": 1
             },
             {
-              "$id": "47",
+              "$id": "45",
               "$type": "NINA.Sequencer.Container.DeepSkyObjectContainer, NINA.Sequencer",
               "Strategy": {
                 "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
               },
               "Name": "Test 2 - M81: Slew and Center, HO 30 s, Astro 15 s gain 130",
               "Target": {
-                "$id": "46",
+                "$id": "44",
                 "$type": "NINA.Astrometry.InputTarget, NINA.Astrometry",
                 "Expanded": true,
                 "TargetName": "M81",
@@ -340,30 +319,30 @@
               },
               "ExposureInfoListExpanded": false,
               "Conditions": {
-                "$id": "48",
+                "$id": "46",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "IsExpanded": true,
               "Items": {
-                "$id": "49",
+                "$id": "47",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                 "$values": [
                   {
-                    "$id": "50",
+                    "$id": "48",
                     "$type": "NINA.Sequencer.SequenceItem.Platesolving.Center, NINA.Sequencer",
                     "Inherited": true,
                     "Parent": {
-                      "$ref": "47"
+                      "$ref": "45"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "52",
+                    "$id": "50",
                     "$type": "NINA.Sequencer.SequenceItem.FilterWheel.SwitchFilter, NINA.Sequencer",
                     "Filter": {
-                      "$id": "53",
+                      "$id": "51",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
                       "_name": "HO",
                       "_focusOffset": 0,
@@ -371,7 +350,7 @@
                       "_autoFocusExposureTime": -1.0,
                       "_autoFocusFilter": false,
                       "_autoFocusBinning": {
-                        "$id": "51",
+                        "$id": "49",
                         "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core",
                         "X": 1,
                         "Y": 1
@@ -380,40 +359,40 @@
                       "_autoFocusOffset": -1
                     },
                     "Parent": {
-                      "$ref": "47"
+                      "$ref": "45"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "54",
+                    "$id": "52",
                     "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
                     "Name": "HO 3 x 30 s gain 60",
                     "Conditions": {
-                      "$id": "55",
+                      "$id": "53",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "56",
+                          "$id": "54",
                           "$type": "NINA.Sequencer.Conditions.LoopCondition, NINA.Sequencer",
                           "CompletedIterations": 0,
                           "Iterations": 3,
                           "Parent": {
-                            "$ref": "54"
+                            "$ref": "52"
                           }
                         }
                       ]
                     },
                     "IsExpanded": true,
                     "Items": {
-                      "$id": "57",
+                      "$id": "55",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "58",
+                          "$id": "56",
                           "$type": "NINA.Sequencer.SequenceItem.Imaging.TakeExposure, NINA.Sequencer",
                           "ExposureTime": 30.0,
                           "Gain": 60,
@@ -427,7 +406,7 @@
                           "ImageType": "LIGHT",
                           "ExposureCount": 0,
                           "Parent": {
-                            "$ref": "54"
+                            "$ref": "52"
                           },
                           "ErrorBehavior": 0,
                           "Attempts": 1
@@ -435,21 +414,21 @@
                       ]
                     },
                     "Triggers": {
-                      "$id": "59",
+                      "$id": "57",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                       "$values": []
                     },
                     "Parent": {
-                      "$ref": "47"
+                      "$ref": "45"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "61",
+                    "$id": "59",
                     "$type": "NINA.Sequencer.SequenceItem.FilterWheel.SwitchFilter, NINA.Sequencer",
                     "Filter": {
-                      "$id": "62",
+                      "$id": "60",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
                       "_name": "Astro",
                       "_focusOffset": 0,
@@ -457,7 +436,7 @@
                       "_autoFocusExposureTime": -1.0,
                       "_autoFocusFilter": false,
                       "_autoFocusBinning": {
-                        "$id": "60",
+                        "$id": "58",
                         "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core",
                         "X": 1,
                         "Y": 1
@@ -466,40 +445,40 @@
                       "_autoFocusOffset": -1
                     },
                     "Parent": {
-                      "$ref": "47"
+                      "$ref": "45"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "63",
+                    "$id": "61",
                     "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
                     "Name": "Astro 3 x 15 s gain 130",
                     "Conditions": {
-                      "$id": "64",
+                      "$id": "62",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "65",
+                          "$id": "63",
                           "$type": "NINA.Sequencer.Conditions.LoopCondition, NINA.Sequencer",
                           "CompletedIterations": 0,
                           "Iterations": 3,
                           "Parent": {
-                            "$ref": "63"
+                            "$ref": "61"
                           }
                         }
                       ]
                     },
                     "IsExpanded": true,
                     "Items": {
-                      "$id": "66",
+                      "$id": "64",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "67",
+                          "$id": "65",
                           "$type": "NINA.Sequencer.SequenceItem.Imaging.TakeExposure, NINA.Sequencer",
                           "ExposureTime": 15.0,
                           "Gain": 130,
@@ -513,7 +492,7 @@
                           "ImageType": "LIGHT",
                           "ExposureCount": 0,
                           "Parent": {
-                            "$ref": "63"
+                            "$ref": "61"
                           },
                           "ErrorBehavior": 0,
                           "Attempts": 1
@@ -521,22 +500,12 @@
                       ]
                     },
                     "Triggers": {
-                      "$id": "68",
+                      "$id": "66",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                       "$values": []
                     },
                     "Parent": {
-                      "$ref": "47"
-                    },
-                    "ErrorBehavior": 0,
-                    "Attempts": 1
-                  },
-                  {
-                    "$id": "69",
-                    "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-                    "Text": "Test 2 done. NINA should report M81 centred (the 10 s plate-solve frame failed before the fix). Activity: HO 30 s gain 60, 3 frames; Astro 15 s gain 130, 3 frames. OK to continue.",
-                    "Parent": {
-                      "$ref": "47"
+                      "$ref": "45"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
@@ -544,62 +513,62 @@
                 ]
               },
               "Triggers": {
-                "$id": "70",
+                "$id": "67",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "Parent": {
-                "$ref": "18"
+                "$ref": "17"
               },
               "ErrorBehavior": 0,
               "Attempts": 1
             },
             {
-              "$id": "71",
+              "$id": "68",
               "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
               "Strategy": {
                 "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
               },
               "Name": "Test 3 - Exposure the DWARF cannot take (20 s)",
               "Conditions": {
-                "$id": "72",
+                "$id": "69",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "IsExpanded": true,
               "Items": {
-                "$id": "73",
+                "$id": "70",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                 "$values": [
                   {
-                    "$id": "74",
+                    "$id": "71",
                     "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
                     "Name": "1 x 20 s (expected to fail)",
                     "Conditions": {
-                      "$id": "75",
+                      "$id": "72",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "76",
+                          "$id": "73",
                           "$type": "NINA.Sequencer.Conditions.LoopCondition, NINA.Sequencer",
                           "CompletedIterations": 0,
                           "Iterations": 1,
                           "Parent": {
-                            "$ref": "74"
+                            "$ref": "71"
                           }
                         }
                       ]
                     },
                     "IsExpanded": true,
                     "Items": {
-                      "$id": "77",
+                      "$id": "74",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "78",
+                          "$id": "75",
                           "$type": "NINA.Sequencer.SequenceItem.Imaging.TakeExposure, NINA.Sequencer",
                           "ExposureTime": 20.0,
                           "Gain": 60,
@@ -613,7 +582,7 @@
                           "ImageType": "LIGHT",
                           "ExposureCount": 0,
                           "Parent": {
-                            "$ref": "74"
+                            "$ref": "71"
                           },
                           "ErrorBehavior": 0,
                           "Attempts": 1
@@ -621,22 +590,12 @@
                       ]
                     },
                     "Triggers": {
-                      "$id": "79",
+                      "$id": "76",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                       "$values": []
                     },
                     "Parent": {
-                      "$ref": "71"
-                    },
-                    "ErrorBehavior": 0,
-                    "Attempts": 1
-                  },
-                  {
-                    "$id": "80",
-                    "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-                    "Text": "Test 3 done. NINA should report an error and Activity should show 'Exposure could not start: No exact firmware exposure value ... 20s (supported: ...)'. OK to continue.",
-                    "Parent": {
-                      "$ref": "71"
+                      "$ref": "68"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
@@ -644,59 +603,49 @@
                 ]
               },
               "Triggers": {
-                "$id": "81",
+                "$id": "77",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "Parent": {
-                "$ref": "18"
+                "$ref": "17"
               },
               "ErrorBehavior": 0,
               "Attempts": 1
             },
             {
-              "$id": "82",
+              "$id": "78",
               "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
               "Strategy": {
                 "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
               },
               "Name": "Test 4 - Tracking off",
               "Conditions": {
-                "$id": "83",
+                "$id": "79",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "IsExpanded": true,
               "Items": {
-                "$id": "84",
+                "$id": "80",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                 "$values": [
                   {
-                    "$id": "85",
+                    "$id": "81",
                     "$type": "NINA.Sequencer.SequenceItem.Telescope.SetTracking, NINA.Sequencer",
                     "TrackingMode": 5,
                     "Parent": {
-                      "$ref": "82"
+                      "$ref": "78"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "86",
+                    "$id": "82",
                     "$type": "NINA.Sequencer.SequenceItem.Utility.WaitForTimeSpan, NINA.Sequencer",
                     "Time": 5.0,
                     "Parent": {
-                      "$ref": "82"
-                    },
-                    "ErrorBehavior": 0,
-                    "Attempts": 1
-                  },
-                  {
-                    "$id": "87",
-                    "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-                    "Text": "Test 4 done. Activity should show: Tracking stopped by NINA. OK to continue.",
-                    "Parent": {
-                      "$ref": "82"
+                      "$ref": "78"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
@@ -704,25 +653,25 @@
                 ]
               },
               "Triggers": {
-                "$id": "88",
+                "$id": "83",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "Parent": {
-                "$ref": "18"
+                "$ref": "17"
               },
               "ErrorBehavior": 0,
               "Attempts": 1
             },
             {
-              "$id": "90",
+              "$id": "85",
               "$type": "NINA.Sequencer.Container.DeepSkyObjectContainer, NINA.Sequencer",
               "Strategy": {
                 "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
               },
-              "Name": "Test 5 - M31: GOTO after tracking off, HO 45 s, Stop and resume",
+              "Name": "Test 5 - M31: GOTO after tracking off, HO 4 x 45 s",
               "Target": {
-                "$id": "89",
+                "$id": "84",
                 "$type": "NINA.Astrometry.InputTarget, NINA.Astrometry",
                 "Expanded": true,
                 "TargetName": "M31",
@@ -741,30 +690,30 @@
               },
               "ExposureInfoListExpanded": false,
               "Conditions": {
-                "$id": "91",
+                "$id": "86",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "IsExpanded": true,
               "Items": {
-                "$id": "92",
+                "$id": "87",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                 "$values": [
                   {
-                    "$id": "93",
+                    "$id": "88",
                     "$type": "NINA.Sequencer.SequenceItem.Telescope.SlewScopeToRaDec, NINA.Sequencer",
                     "Inherited": true,
                     "Parent": {
-                      "$ref": "90"
+                      "$ref": "85"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "95",
+                    "$id": "90",
                     "$type": "NINA.Sequencer.SequenceItem.FilterWheel.SwitchFilter, NINA.Sequencer",
                     "Filter": {
-                      "$id": "96",
+                      "$id": "91",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
                       "_name": "HO",
                       "_focusOffset": 0,
@@ -772,7 +721,7 @@
                       "_autoFocusExposureTime": -1.0,
                       "_autoFocusFilter": false,
                       "_autoFocusBinning": {
-                        "$id": "94",
+                        "$id": "89",
                         "$type": "NINA.Core.Model.Equipment.BinningMode, NINA.Core",
                         "X": 1,
                         "Y": 1
@@ -781,50 +730,40 @@
                       "_autoFocusOffset": -1
                     },
                     "Parent": {
-                      "$ref": "90"
+                      "$ref": "85"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
                   },
                   {
-                    "$id": "97",
-                    "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-                    "Text": "Test 5: during the next 45 s exposures press Stop in NINA, wait a few seconds and press Start again. Activity should show the session ending (exposure aborted) and a new session starting, with no 'NINA stopped waiting' warning.",
-                    "Parent": {
-                      "$ref": "90"
-                    },
-                    "ErrorBehavior": 0,
-                    "Attempts": 1
-                  },
-                  {
-                    "$id": "98",
+                    "$id": "92",
                     "$type": "NINA.Sequencer.Container.SequentialContainer, NINA.Sequencer",
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
                     "Name": "HO 4 x 45 s",
                     "Conditions": {
-                      "$id": "99",
+                      "$id": "93",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "100",
+                          "$id": "94",
                           "$type": "NINA.Sequencer.Conditions.LoopCondition, NINA.Sequencer",
                           "CompletedIterations": 0,
                           "Iterations": 4,
                           "Parent": {
-                            "$ref": "98"
+                            "$ref": "92"
                           }
                         }
                       ]
                     },
                     "IsExpanded": true,
                     "Items": {
-                      "$id": "101",
+                      "$id": "95",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
                       "$values": [
                         {
-                          "$id": "102",
+                          "$id": "96",
                           "$type": "NINA.Sequencer.SequenceItem.Imaging.TakeExposure, NINA.Sequencer",
                           "ExposureTime": 45.0,
                           "Gain": 60,
@@ -838,7 +777,7 @@
                           "ImageType": "LIGHT",
                           "ExposureCount": 0,
                           "Parent": {
-                            "$ref": "98"
+                            "$ref": "92"
                           },
                           "ErrorBehavior": 0,
                           "Attempts": 1
@@ -846,12 +785,12 @@
                       ]
                     },
                     "Triggers": {
-                      "$id": "103",
+                      "$id": "97",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                       "$values": []
                     },
                     "Parent": {
-                      "$ref": "90"
+                      "$ref": "85"
                     },
                     "ErrorBehavior": 0,
                     "Attempts": 1
@@ -859,12 +798,12 @@
                 ]
               },
               "Triggers": {
-                "$id": "104",
+                "$id": "98",
                 "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
                 "$values": []
               },
               "Parent": {
-                "$ref": "18"
+                "$ref": "17"
               },
               "ErrorBehavior": 0,
               "Attempts": 1
@@ -872,7 +811,7 @@
           ]
         },
         "Triggers": {
-          "$id": "105",
+          "$id": "99",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
           "$values": []
         },
@@ -883,38 +822,28 @@
         "Attempts": 1
       },
       {
-        "$id": "106",
+        "$id": "100",
         "$type": "NINA.Sequencer.Container.EndAreaContainer, NINA.Sequencer",
         "Strategy": {
           "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
         },
         "Name": "End",
         "Conditions": {
-          "$id": "107",
+          "$id": "101",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
           "$values": []
         },
         "IsExpanded": true,
         "Items": {
-          "$id": "108",
+          "$id": "102",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.SequenceItem.ISequenceItem, NINA.Sequencer]], System.ObjectModel",
           "$values": [
             {
-              "$id": "109",
+              "$id": "103",
               "$type": "NINA.Sequencer.SequenceItem.Telescope.SetTracking, NINA.Sequencer",
               "TrackingMode": 5,
               "Parent": {
-                "$ref": "106"
-              },
-              "ErrorBehavior": 0,
-              "Attempts": 1
-            },
-            {
-              "$id": "110",
-              "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-              "Text": "Test plan 3 finished. Please send the Activity and Technical logs from dwarfAlp.",
-              "Parent": {
-                "$ref": "106"
+                "$ref": "100"
               },
               "ErrorBehavior": 0,
               "Attempts": 1
@@ -922,7 +851,7 @@
           ]
         },
         "Triggers": {
-          "$id": "111",
+          "$id": "104",
           "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
           "$values": []
         },
@@ -935,7 +864,7 @@
     ]
   },
   "Triggers": {
-    "$id": "112",
+    "$id": "105",
     "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Trigger.ISequenceTrigger, NINA.Sequencer]], System.ObjectModel",
     "$values": []
   },
