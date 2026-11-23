@@ -207,6 +207,8 @@ class ActivityTranslator:
             "dwarf.camera.astro_capture_ready_wait_timeout": self._on_ready_timeout,
             "dwarf.camera.deferred_start_failed": self._on_start_failed,
             "alpaca.camera.start_rejected": self._on_start_failed,
+            "dwarf.lights.off": self._on_light_off,
+            "dwarf.lights.off_failed": self._on_light_off_failed,
             "dwarf.camera.v3_astro_quick_set_rejected": self._on_quick_set_rejected,
             "dwarf.camera.astro_capture_state": self._on_capture_state,
             "dwarf.camera.astro_capture_goto_missing": self._on_goto_missing,
@@ -437,6 +439,14 @@ class ActivityTranslator:
         return [
             ActivityEntry(t, ERROR, f"DWARF still busy after {_seconds(f.get('timeout'))} s")
         ]
+
+    def _on_light_off(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        name = "Ring light" if f.get("light") == "ring_light" else "Battery indicator"
+        return [ActivityEntry(t, INFO, f"{name} turned off")]
+
+    def _on_light_off_failed(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
+        name = "ring light" if f.get("light") == "ring_light" else "battery indicator"
+        return [ActivityEntry(t, WARN, f"Could not turn the {name} off: {f.get('error')}")]
 
     def _on_quick_set_rejected(self, f: dict[str, Any], t: float) -> list[ActivityEntry]:
         self.status.camera = "failed"

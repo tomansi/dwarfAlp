@@ -314,3 +314,10 @@ def test_rejected_exposure_request_is_reported() -> None:
     assert _texts(feed)[0].startswith(
         "Exposure could not start: No exact firmware exposure value is available for requested duration 20s"
     )
+
+
+def test_lights_turned_off() -> None:
+    tr = ActivityTranslator()
+    feed = tr.feed(_js("dwarf.lights.off", light="ring_light"), 0)
+    feed += tr.feed(_js("dwarf.lights.off", light="battery_indicator"), 0)
+    assert _texts(feed) == ["Ring light turned off", "Battery indicator turned off"]

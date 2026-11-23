@@ -771,6 +771,14 @@ class CaptureOptionsWidget(QGroupBox):
             "each GOTO then waits 20 s for nothing. Focus in the DWARFLAB app instead."
         )
         self.autofocus_checkbox.setContentsMargins(24, 0, 0, 0)
+        self.ring_light_checkbox = QCheckBox("Ring light off")
+        self.battery_indicator_checkbox = QCheckBox("Battery indicator off")
+        for box in (self.ring_light_checkbox, self.battery_indicator_checkbox):
+            box.setToolTip(
+                "Turned off when dwarfAlp connects to the DWARF; the DWARFLAB app can "
+                "turn it on again."
+            )
+        self.battery_indicator_checkbox.setContentsMargins(24, 0, 0, 0)
 
         for spin in (self.continuous_idle_spin, self.delete_timeout_spin, self.ready_timeout_spin):
             spin.setFixedWidth(100)
@@ -784,6 +792,10 @@ class CaptureOptionsWidget(QGroupBox):
         )
         form.addRow(
             _inline_row(self.delete_session_checkbox, "Deletion wait", self.delete_timeout_spin)
+        )
+        form.addRow(
+            "DWARF lights",
+            _inline_row(self.ring_light_checkbox, self.battery_indicator_checkbox),
         )
         self.delete_session_checkbox.toggled.connect(self._sync_state)
         layout = QVBoxLayout()
@@ -808,6 +820,8 @@ class CaptureOptionsWidget(QGroupBox):
             int(round(settings.astro_capture_ready_timeout_seconds))
         )
         self.autofocus_checkbox.setChecked(settings.autofocus_before_calibration)
+        self.ring_light_checkbox.setChecked(settings.ring_light_off)
+        self.battery_indicator_checkbox.setChecked(settings.battery_indicator_off)
         self._sync_state()
 
     def apply(self, settings: Settings) -> Settings:
@@ -829,6 +843,8 @@ class CaptureOptionsWidget(QGroupBox):
                     self.ready_timeout_spin.value()
                 ),
                 "autofocus_before_calibration": self.autofocus_checkbox.isChecked(),
+                "ring_light_off": self.ring_light_checkbox.isChecked(),
+                "battery_indicator_off": self.battery_indicator_checkbox.isChecked(),
             }
         )
 
@@ -847,6 +863,8 @@ PROFILE_KEYS: tuple[str, ...] = (
     "force_simulation",
     "calibrate_after_server_start",
     "autofocus_before_calibration",
+    "ring_light_off",
+    "battery_indicator_off",
     "site_latitude",
     "site_longitude",
     "timezone_name",
@@ -1044,7 +1062,10 @@ class MainWindow(QMainWindow):
                 "<br/><br/><b>Autofocus before GOTO and calibration</b>: off by default."
                 " The tested DWARF 3 firmware accepts the command but never starts"
                 " autofocus, so each GOTO waited 20 s for nothing. Focus in the DWARFLAB"
-                " app before connecting NINA.",
+                " app before connecting NINA."
+                "<br/><br/><b>DWARF lights</b>: turn the ring light and the battery"
+                " indicator off when dwarfAlp connects (start the server again after a"
+                " change). They stay off; the DWARFLAB app can turn them on again.",
             ),
         }
         self._refresh_state()

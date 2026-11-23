@@ -1761,3 +1761,59 @@ async def test_continue_without_dark_releases_a_stale_request(monkeypatch):
     assert cancelled == [
         (protocol_pb2.ModuleId.MODULE_ASTRO, protocol_pb2.DwarfCMD.CMD_ASTRO_CONTINUE_SHOOTING)
     ]
+
+
+@pytest.mark.asyncio
+async def test_lights_turned_off_only_when_asked_and_on(monkeypatch):
+    from types import SimpleNamespace
+
+    session = DwarfSession(
+        Settings(
+            force_simulation=True,
+            dwarf_device_model="dwarf3",
+            ring_light_off=True,
+            battery_indicator_off=True,
+        )
+    )
+    session.simulation = False
+    sent: list[tuple[int, int]] = []
+
+    async def fake_send_and_check(module, command, request, **_kwargs):
+        sent.append((module, command))
+
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+    response = SimpleNamespace(
+        device_state_info=SimpleNamespace(
+            rgb_state=SimpleNamespace(state=1), power_ind_state=SimpleNamespace(state=0)
+        )
+    )
+
+    await session._apply_light_preferences(response)
+
+    # The battery indicator is already off: only the ring light is switched.
+    assert sent == [
+        (protocol_pb2.ModuleId.MODULE_RGB_POWER, protocol_pb2.DwarfCMD.CMD_RGB_POWER_CLOSE_RGB)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_lights_left_alone_by_default(monkeypatch):
+    from types import SimpleNamespace
+
+    session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarf3"))
+    session.simulation = False
+    sent: list[int] = []
+
+    async def fake_send_and_check(module, command, request, **_kwargs):
+        sent.append(command)
+
+    monkeypatch.setattr(session, "_send_and_check", fake_send_and_check)
+    response = SimpleNamespace(
+        device_state_info=SimpleNamespace(
+            rgb_state=SimpleNamespace(state=1), power_ind_state=SimpleNamespace(state=1)
+        )
+    )
+
+    await session._apply_light_preferences(response)
+
+    assert sent == []

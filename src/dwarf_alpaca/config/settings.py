@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     # calibrated, the plain GOTO (11002) was accepted but the DWARF never moved.
     # The one-click GOTO skips calibration when the DWARF is already calibrated.
     always_one_click_goto: bool = True
+    # Turn the DWARF's lights off when dwarfAlp connects (they stay off; the
+    # DWARFLAB app can turn them on again). 13501 ring light, 13504 battery
+    # indicator.
+    ring_light_off: bool = False
+    battery_indicator_off: bool = False
     calibrate_after_server_start: bool = False
     focuser_target_tolerance_steps: int = 5
 

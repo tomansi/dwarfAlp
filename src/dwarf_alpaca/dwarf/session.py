@@ -26,7 +26,7 @@ from websockets.exceptions import ConnectionClosed, ConnectionClosedOK
 from ..astronomy.target_names import resolve_nina_target_name
 from ..config.settings import Settings
 from ..device_profile import DeviceProfile, get_device_profile
-from ..proto import astro_pb2, protocol_pb2
+from ..proto import astro_pb2, protocol_pb2, rgb_pb2
 from ..proto.astro_pb2 import ReqGotoDSO, ReqStopGoto
 from ..proto.base_pb2 import CommonParam, ComResponse
 from ..proto.camera_pb2 import (
@@ -1054,8 +1054,52 @@ class DwarfSession:
                     payload_len=self._v3_device_config_bytes,
                     parsed=parsed,
                 )
+                await self._apply_light_preferences(response)
         except Exception as exc:  # pragma: no cover - hardware dependent
             logger.debug("dwarf.system.v3_device_config_failed", error=str(exc))
+
+    async def _apply_light_preferences(self, response: Any) -> None:
+        """Turn the ring light and battery indicator off if the settings ask.
+
+        Only lights the DWARF reports as on are switched, so reconnecting does
+        not send the commands again.
+        """
+
+        device_state = getattr(response, "device_state_info", None)
+        lights = (
+            (
+                self.settings.ring_light_off,
+                "ring_light",
+                getattr(getattr(device_state, "rgb_state", None), "state", 1),
+                protocol_pb2.DwarfCMD.CMD_RGB_POWER_CLOSE_RGB,
+                rgb_pb2.ReqCloseRgb(),
+            ),
+            (
+                self.settings.battery_indicator_off,
+                "battery_indicator",
+                getattr(getattr(device_state, "power_ind_state", None), "state", 1),
+                protocol_pb2.DwarfCMD.CMD_RGB_POWER_POWERIND_OFF,
+                rgb_pb2.ReqClosePowerInd(),
+            ),
+        )
+        for wanted, name, state, command_id, request in lights:
+            if not wanted or int(state) == 0:
+                continue
+            try:
+                await self._send_and_check(
+                    protocol_pb2.ModuleId.MODULE_RGB_POWER,
+                    command_id,
+                    request,
+                    timeout=5.0,
+                )
+            except Exception as exc:  # pragma: no cover - hardware dependent
+                logger.warning(
+                    "dwarf.lights.off_failed",
+                    light=name,
+                    error=str(exc) or type(exc).__name__,
+                )
+            else:
+                logger.info("dwarf.lights.off", light=name)
 
     async def _enter_v3_astro_mode(self) -> None:
         """Put a V3 device into the Deep Sky workflow before applying astro parameters."""
