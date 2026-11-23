@@ -14,7 +14,7 @@ from dwarf_alpaca.gui.app import (  # noqa: E402
 
 def test_profile_round_trip(tmp_path: Path) -> None:
     settings = Settings(
-        dwarf_ap_ip="192.168.7.81",
+        dwarf_ap_ip="192.168.88.1",
         site_latitude=40.4168,
         site_longitude=-3.7038,
         timezone_name="Europe/Madrid",

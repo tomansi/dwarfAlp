@@ -33,7 +33,7 @@ def test_parse_structlog_json_and_key_value_lines() -> None:
     event, fields = parse_record(
         _js(
             "dwarf.system.master_lock_acquired ip=%s mode=%s lock=%s",
-            positional_args=["192.168.7.81", 0, True],
+            positional_args=["192.168.88.1", 0, True],
         )
     )
     assert event == "dwarf.system.master_lock_acquired"
@@ -41,11 +41,11 @@ def test_parse_structlog_json_and_key_value_lines() -> None:
 
 def test_continuous_sequence_reads_like_a_story() -> None:
     tr = ActivityTranslator()
-    tr.configure(model="dwarf3", ip="192.168.7.81")
+    tr.configure(model="dwarf3", ip="192.168.88.1")
     feed = []
-    feed += tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0)
+    feed += tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.88.1"]), 0)
     feed += tr.feed(_js("dwarf.system.master_lock_unlocked"), 0.1)
-    feed += tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0.2)
+    feed += tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.88.1"]), 0.2)
     feed += tr.feed(_js("filterwheel.position_set", filter="Astro Filter"), 1)
     feed += tr.feed(_js("alpaca.camera.start_exposure_request", resolved_duration=30.0, resolved_light=True), 2)
     feed += tr.feed(_js("dwarf.camera.continuous_session_started", device_frames=999), 3)
@@ -58,7 +58,7 @@ def test_continuous_sequence_reads_like_a_story() -> None:
     feed += tr.feed(_js("dwarf.camera.astro_cleanup_deleted", folder="DWARF_RAW_X", still_present=False), 142)
 
     assert _texts(feed) == [
-        "Connected to DWARF 3 at 192.168.7.81",
+        "Connected to DWARF 3 at 192.168.88.1",
         "Filter: Astro",
         "NINA requested a 30 s light exposure",
         "Continuous DWARF session started",
@@ -75,30 +75,30 @@ def test_continuous_sequence_reads_like_a_story() -> None:
 
 def test_status_line_tracks_connection_camera_and_session() -> None:
     tr = ActivityTranslator()
-    tr.configure(model="dwarf3", ip="192.168.7.81")
-    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0)
+    tr.configure(model="dwarf3", ip="192.168.88.1")
+    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.88.1"]), 0)
     tr.feed(_js("dwarf.battery.notification", battery_percent=100), 0)
     tr.feed(_js("filterwheel.position_set", filter="Duo-Band Filter"), 0)
     tr.feed(_js("alpaca.camera.start_exposure_request", resolved_duration=60.0), 0)
     tr.feed(_js("dwarf.camera.continuous_session_started"), 0)
     tr.feed(_js("dwarf.camera.continuous_frame_delivered", frames_delivered=2, frame_end=0), 0)
     assert tr.status.render() == (
-        "DWARF 3 · connected (192.168.7.81)  |  Camera: frame ready  |  "
+        "DWARF 3 · connected (192.168.88.1)  |  Camera: frame ready  |  "
         "Continuous session: 2 frames  |  Filter: Duo-Band  |  Battery 100 %"
     )
 
 
 def test_errors_are_explained() -> None:
     tr = ActivityTranslator()
-    tr.configure(model="dwarf3", ip="192.168.7.81")
+    tr.configure(model="dwarf3", ip="192.168.88.1")
     entries = tr.feed(_js("dwarf.ws.connect_failed", error="timed out"), 0)
     entries += tr.feed(_js("alpaca.camera.gain_rejected", requested=800, minimum=0, maximum=200), 1)
     entries += tr.feed(_js("dwarf.camera.astro_cleanup_skipped", reason="album_entry_not_found"), 2)
     assert [entry.kind for entry in entries] == [ERROR, ERROR, WARN]
-    assert "192.168.7.81" in entries[0].text and entries[0].group == "connect_failed"
+    assert "192.168.88.1" in entries[0].text and entries[0].group == "connect_failed"
     assert "800" in entries[1].text and "Default Gain" in entries[1].text
     assert "did not list the session" in entries[2].text
-    assert "not responding (192.168.7.81)" in tr.status.render()
+    assert "not responding (192.168.88.1)" in tr.status.render()
 
 
 @pytest.mark.parametrize(
@@ -167,25 +167,25 @@ def test_goto_busy_rejection_message() -> None:
 
 def test_status_line_leaves_out_unknown_camera_and_battery() -> None:
     tr = ActivityTranslator()
-    tr.configure(model="dwarf3", ip="192.168.7.81")
+    tr.configure(model="dwarf3", ip="192.168.88.1")
     assert tr.status.render() == "DWARF 3 · not connected"
 
-    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0)
+    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.88.1"]), 0)
     entries = tr.feed(_js("alpaca.camera.connected"), 1)
     assert _texts(entries) == ["Camera connected by NINA"]
-    assert tr.status.render() == "DWARF 3 · connected (192.168.7.81)  |  Camera: idle"
+    assert tr.status.render() == "DWARF 3 · connected (192.168.88.1)  |  Camera: idle"
 
 
 def test_server_stop_resets_status_and_explains() -> None:
     tr = ActivityTranslator()
-    tr.configure(model="dwarf3", ip="192.168.7.81")
-    tr.feed("INFO uvicorn.error: Uvicorn running on http://192.168.7.7:11111", 0)
-    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.7.81"]), 0)
+    tr.configure(model="dwarf3", ip="192.168.88.1")
+    tr.feed("INFO uvicorn.error: Uvicorn running on http://192.168.88.2:11111", 0)
+    tr.feed(_js("dwarf.system.master_lock_acquired", positional_args=["192.168.88.1"]), 0)
     tr.feed(_js("dwarf.battery.notification", battery_percent=100), 0)
     tr.feed(_js("alpaca.camera.connected"), 0)
 
     stopped = tr.server_stopped(5.0)
-    tr.feed(_js("dwarf.system.master_lock_unlocked", ip="192.168.7.81"), 6.0)
+    tr.feed(_js("dwarf.system.master_lock_unlocked", ip="192.168.88.1"), 6.0)
 
     assert [entry.kind for entry in stopped] == [STOP]
     assert "server stopped" in stopped[0].text

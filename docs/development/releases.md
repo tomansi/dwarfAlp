@@ -40,8 +40,9 @@ uv run pyinstaller `
 The result is `dist/DwarfAlpacaGUI.exe`. `--splash` shows `images/splash.png` while
 the one-file executable unpacks (it needs Tcl/Tk, which the Windows Python builds
 include); the program closes it once the window is up. A second start while the
-program is running only shows "already running" (lock file in `var/`). `run_gui.py` and `images/` stay in their
-current locations because both the workflow and frozen-runtime asset resolution use
+program is running only shows "already running" (lock file in `var/`).
+
+`run_gui.py` and `images/` stay in their current locations because both the workflow and frozen-runtime asset resolution use
 them. The local `DwarfAlpacaGUI.spec` is generated/ignored and is not a clean-checkout
 build input.
 

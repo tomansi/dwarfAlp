@@ -300,7 +300,7 @@ def test_server_widget_displays_calibration_outcome(qapp):
 
 def test_save_profile_and_load_it_at_startup(qapp, tmp_path):
     window = MainWindow()
-    window.settings_widget.dwarf_ip_edit.setText("192.168.7.81")
+    window.settings_widget.dwarf_ip_edit.setText("192.168.88.1")
     window.capture_widget.delete_session_checkbox.setChecked(True)
     window._save_settings_profile()
     profile = tmp_path / "dwarf-alpaca.yaml"
@@ -308,7 +308,7 @@ def test_save_profile_and_load_it_at_startup(qapp, tmp_path):
     window.close()
 
     reopened = MainWindow()
-    assert reopened.settings_widget.dwarf_ip_edit.text() == "192.168.7.81"
+    assert reopened.settings_widget.dwarf_ip_edit.text() == "192.168.88.1"
     assert reopened.capture_widget.delete_session_checkbox.isChecked()
     assert reopened._tabs.tabText(3) == "Capture"
     assert reopened._settings_path == profile
@@ -317,7 +317,7 @@ def test_save_profile_and_load_it_at_startup(qapp, tmp_path):
 
 def test_profile_ip_wins_over_remembered_sta_ip(qapp, tmp_path):
     window = MainWindow()
-    window.settings_widget.dwarf_ip_edit.setText("192.168.7.81")
+    window.settings_widget.dwarf_ip_edit.setText("192.168.88.1")
     window._save_settings_profile()
     window.close()
 
@@ -327,8 +327,8 @@ def test_profile_ip_wins_over_remembered_sta_ip(qapp, tmp_path):
         store.save(ConnectivityState(sta_ip="10.0.0.99", mode="sta"))
         reopened._state_store = store  # type: ignore[attr-defined]
         reopened._refresh_state()
-        assert reopened.settings_widget.dwarf_ip_edit.text() == "192.168.7.81"
-        assert reopened._build_settings_for_server().dwarf_ap_ip == "192.168.7.81"
+        assert reopened.settings_widget.dwarf_ip_edit.text() == "192.168.88.1"
+        assert reopened._build_settings_for_server().dwarf_ap_ip == "192.168.88.1"
     finally:
         reopened.close()
 
