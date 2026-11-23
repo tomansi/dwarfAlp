@@ -58,6 +58,8 @@ checks below after updating.
 | 2026-11-22 | Test plan 2 (filters, gains), firmware V1.5.5.1 | 10 s gain 60 OK with the preset fallback (also 45 s gain 60); filter changes end the session as expected; 20 s refused with the list of exposures; tracking off and GOTO OK |
 | 2026-11-22 | Exposures without a matching dark frame after the first one | Failed: the DWARF did not answer "continue without dark" (11050) and the request stayed pending, so 13 s gain 100, the 10 s plate-solve frame and all 45 s frames never started. Fixed: stale request released |
 | 2026-11-22 | NINA Camera Timeout still 60 s | NINA aborted 13 s and 15 s frames at 73–75 s. Set Options → Equipment → Camera → Camera Timeout to 180 s |
+| 2026-11-23 | Test plan 2 repeated with the 11050 fix, firmware V1.5.5.1 | OK: Slew and Center (10 s gain 90 plate solve) on M81 twice, VIS 10 s gain 60, Astro 13 s gain 100, Duo-Band 30 s, VIS 15 s gain 130, Astro 45 s, filter changes, 20 s refused, tracking off, GOTO after tracking off. Every exposure started |
+| 2026-11-23 | NINA Camera Timeout | Still 60 s: the first frame after a filter change was aborted once or twice at exposure + 60 s before it arrived |
 | 2026-11-16 | Slew + Center (NINA plate solve) | First attempt failed and it was slow; aborted. To be retried |
 | 2026-11-15 | Astro autofocus before calibration | DWARF acknowledges but never starts it; GOTO now continues without it |
 | 2026-11-15 | Folder names created by one-click GOTO (`Caldwell20`, `NGC2281`) | Differ from the app (`C 20`, `NGC 2281`); the app still recognises them |
