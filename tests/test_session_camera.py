@@ -330,12 +330,12 @@ async def test_dwarf3_v3_astro_preset_accepts_firmware_zero_placeholder(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
+async def test_mini_astro_start_embeds_selected_ho_filter(monkeypatch):
     session = DwarfSession(Settings(force_simulation=True, dwarf_device_model="dwarfmini"))
     session.simulation = False
     await session._get_filter_options()
     session.camera_state.filter_index = 1
-    session.camera_state.filter_name = "Duo-Band"
+    session.camera_state.filter_name = "HO"
     captured: dict[str, object] = {}
 
     async def fake_begin_request(module_id, command_id, request, _response_cls):
@@ -359,7 +359,7 @@ async def test_mini_astro_start_embeds_selected_duoband_filter(monkeypatch):
     assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
     assert request.ir_index == 2
     assert request.force_start is False
-    assert session.camera_state.applied_filter_name == "Duo-Band"
+    assert session.camera_state.applied_filter_name == "HO"
 
 
 @pytest.mark.asyncio
@@ -368,7 +368,7 @@ async def test_dwarf3_astro_start_embeds_selected_filter(monkeypatch):
     session.simulation = False
     await session._get_filter_options()
     session.camera_state.filter_index = 2
-    session.camera_state.filter_name = "Duo-Band Filter"
+    session.camera_state.filter_name = "HO"
     captured: dict[str, object] = {}
 
     async def fake_begin_request(_module_id, _command_id, request, _response_cls):
@@ -389,7 +389,7 @@ async def test_dwarf3_astro_start_embeds_selected_filter(monkeypatch):
     assert isinstance(request, astro_pb2.ReqCaptureRawLiveStacking)
     assert request.ir_index == 2
     assert request.force_start is False
-    assert session.camera_state.applied_filter_name == "Duo-Band Filter"
+    assert session.camera_state.applied_filter_name == "HO"
 
 
 @pytest.mark.asyncio
