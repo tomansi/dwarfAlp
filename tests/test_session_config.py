@@ -153,7 +153,7 @@ async def test_dwarf3_filter_options_use_model_specific_v3_indices() -> None:
     assert [entry.label for entry in options] == [
         "VIS Filter",
         "Astro Filter",
-        "Duo-Band Filter",
+        "HO Filter",
     ]
     assert [entry.index for entry in options] == [0, 1, 2]
     assert all(entry.controllable for entry in options)

@@ -319,7 +319,7 @@
               "Strategy": {
                 "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
               },
-              "Name": "Test 2 - M81: Slew and Center, Duo-Band 30 s, VIS 15 s gain 130",
+              "Name": "Test 2 - M81: Slew and Center, HO 30 s, VIS 15 s gain 130",
               "Target": {
                 "$id": "46",
                 "$type": "NINA.Astrometry.InputTarget, NINA.Astrometry",
@@ -365,7 +365,7 @@
                     "Filter": {
                       "$id": "53",
                       "$type": "NINA.Core.Model.Equipment.FilterInfo, NINA.Core",
-                      "_name": "Duo-Band Filter",
+                      "_name": "HO Filter",
                       "_focusOffset": 0,
                       "_position": 2,
                       "_autoFocusExposureTime": -1.0,
@@ -391,7 +391,7 @@
                     "Strategy": {
                       "$type": "NINA.Sequencer.Container.ExecutionStrategy.SequentialStrategy, NINA.Sequencer"
                     },
-                    "Name": "Duo-Band 3 x 30 s gain 60",
+                    "Name": "HO 3 x 30 s gain 60",
                     "Conditions": {
                       "$id": "55",
                       "$type": "System.Collections.ObjectModel.ObservableCollection`1[[NINA.Sequencer.Conditions.ISequenceCondition, NINA.Sequencer]], System.ObjectModel",
@@ -534,7 +534,7 @@
                   {
                     "$id": "69",
                     "$type": "NINA.Sequencer.SequenceItem.Utility.MessageBox, NINA.Sequencer",
-                    "Text": "Test 2 done. NINA should report M81 centred (the 10 s plate-solve frame failed before the fix). Activity: Duo-Band 30 s gain 60, 3 frames; VIS 15 s gain 130, 3 frames. OK to continue.",
+                    "Text": "Test 2 done. NINA should report M81 centred (the 10 s plate-solve frame failed before the fix). Activity: HO 30 s gain 60, 3 frames; VIS 15 s gain 130, 3 frames. OK to continue.",
                     "Parent": {
                       "$ref": "47"
                     },

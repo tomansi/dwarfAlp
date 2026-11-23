@@ -1,4 +1,4 @@
-# Generates dwarfAlp-test-plan.json, a N.I.N.A. advanced-sequencer test plan for dwarfAlp.
+# Generates dwarfAlp-test-plan-2.json, a N.I.N.A. advanced-sequencer test plan for dwarfAlp.
 # Run from this folder: python make_test_plan.py
 import json, itertools
 ids = itertools.count(1)
@@ -58,7 +58,7 @@ def exposure(seconds, gain=-1):
 def frames(n, seconds, name, gain=-1):
     return C("SequentialContainer", name, items=[exposure(seconds, gain)], conditions=[loop(n)])
 
-FILTERS = {"VIS": ("VIS Filter", 0), "Astro": ("Astro Filter", 1), "Duo-Band": ("Duo-Band Filter", 2)}
+FILTERS = {"VIS": ("VIS Filter", 0), "Astro": ("Astro Filter", 1), "HO": ("HO Filter", 2)}
 
 def filter_switch(key):
     name, position = FILTERS[key]
@@ -97,12 +97,12 @@ targets = C("TargetAreaContainer", "Targets", items=[
             "session ended (filter changed); Filter Astro, DWARF set to 13 s gain 100, 3 frames. These pairs are not "
             "DWARF presets: before the fix they never started. OK to continue."),
     ]),
-    dso("Test 2 - M81: Slew and Center, Duo-Band 30 s, VIS 15 s gain 130", "M81", coords(9, 55, 33.2, 69, 3, 55.0), [
+    dso("Test 2 - M81: Slew and Center, HO 30 s, VIS 15 s gain 130", "M81", coords(9, 55, 33.2, 69, 3, 55.0), [
         center,
-        filter_switch("Duo-Band"), frames(3, 30, "Duo-Band 3 x 30 s gain 60", gain=60),
+        filter_switch("HO"), frames(3, 30, "HO 3 x 30 s gain 60", gain=60),
         filter_switch("VIS"), frames(3, 15, "VIS 3 x 15 s gain 130", gain=130),
         msg("Test 2 done. NINA should report M81 centred (the 10 s plate-solve frame failed before the fix). Activity: "
-            "Duo-Band 30 s gain 60, 3 frames; VIS 15 s gain 130, 3 frames. OK to continue."),
+            "HO 30 s gain 60, 3 frames; VIS 15 s gain 130, 3 frames. OK to continue."),
     ]),
     C("SequentialContainer", "Test 3 - Exposure the DWARF cannot take (20 s)", items=[
         frames(1, 20, "1 x 20 s (expected to fail)", gain=60),
